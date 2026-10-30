@@ -89,41 +89,6 @@
                 android:letterSpacing="0.02" />
         </LinearLayout>
 
-        <!-- ── Emulator warning (only shown when isEmulator == true) ── -->
-        <LinearLayout
-            android:id="@+id/splashEmulatorNote"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:layout_marginTop="28dp"
-            android:background="#33FF4444"
-            android:paddingLeft="24dp"
-            android:paddingRight="24dp"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
-            android:visibility="gone">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⚠  Emulator detected"
-                android:textColor="#FFFF6666"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="10dp" />
-
-            <TextView
-                android:layout_width="260dp"
-                android:layout_height="wrap_content"
-                android:text="Emulators have no USB host support.\nUSB cameras cannot work here.\n\nInstall the APK on a real Android phone\nand connect the camera directly to it."
-                android:textColor="#CCDDBBBB"
-                android:textSize="12sp"
-                android:gravity="center"
-                android:lineSpacingMultiplier="1.4" />
-
-        </LinearLayout>
-
     </LinearLayout>
 
     <!-- ═══════════════════════════════════════════════════
