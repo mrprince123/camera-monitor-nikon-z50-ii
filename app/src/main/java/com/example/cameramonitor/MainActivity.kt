@@ -3,8 +3,11 @@ package com.example.cameramonitor
 import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.widget.Toast
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.hardware.Sensor
@@ -86,6 +89,7 @@ class MainActivity : CameraActivity(), SensorEventListener {
     ) { permissions ->
         val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
         val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
+        AppLog.i("Perm", "Permission result: RECORD_AUDIO=$audioGranted, CAMERA=$cameraGranted")
         if (audioGranted || cameraGranted) {
             checkAttachedUsbDevice()
         }
@@ -99,7 +103,9 @@ class MainActivity : CameraActivity(), SensorEventListener {
             this, Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
 
+        AppLog.i("Perm", "Current permissions: RECORD_AUDIO=$hasAudio, CAMERA=$hasCamera")
         if (!hasAudio || !hasCamera) {
+            AppLog.i("Perm", "Requesting missing permissions...")
             permissionLauncher.launch(
                 arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
             )
@@ -124,14 +130,17 @@ class MainActivity : CameraActivity(), SensorEventListener {
      * Request MJPEG stream. Automatically falls back from 1080p to 720p on error.
      * FORMAT_MJPEG is required for Nikon UVC webcam mode.
      */
-    override fun getCameraRequest(): CameraRequest =
-        CameraRequest.Builder()
+    override fun getCameraRequest(): CameraRequest {
+        val res = if (use720p) "1280x720" else "1920x1080"
+        AppLog.i("Camera", "Requesting stream: $res MJPEG OpenGL")
+        return CameraRequest.Builder()
             .setPreviewWidth(if (use720p) 1280 else 1920)
             .setPreviewHeight(if (use720p) 720  else 1080)
             .setRenderMode(CameraRequest.RenderMode.OPENGL)
             .setDefaultRotateType(RotateType.ANGLE_0)
             .setPreviewFormat(CameraRequest.PreviewFormat.FORMAT_MJPEG)
             .create()
+    }
 
     // ──────────────────────────────────────────────────────────────────────
     //  initView — called once after the layout is inflated
@@ -140,6 +149,8 @@ class MainActivity : CameraActivity(), SensorEventListener {
     override fun initView() {
         super.initView()
         setupWindowFlags()
+
+        AppLog.i("App", "CamMonitor initView() ready")
 
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
 
@@ -157,8 +168,11 @@ class MainActivity : CameraActivity(), SensorEventListener {
         binding.tgZebra.setOnCheckedChangeListener { _, v -> o.showZebra = v; o.invalidate() }
         binding.tgPeak.setOnCheckedChangeListener  { _, v -> o.showPeak  = v; o.invalidate() }
 
-        // Tap anywhere → smoothly show / hide controls
+        // Tap anywhere on background → smoothly show / hide controls
         binding.root.setOnClickListener { toggleControls() }
+
+        // Wire Diagnostic Logs UI
+        setupLogsUi()
 
         // Initial splash
         showSplash("Connect your camera")
@@ -167,9 +181,59 @@ class MainActivity : CameraActivity(), SensorEventListener {
         checkPermissions()
     }
 
+    private fun setupLogsUi() {
+        // Real-time listener for log updates when modal is visible
+        AppLog.setListener { line ->
+            runOnUiThread {
+                if (binding.logModalContainer.visibility == View.VISIBLE) {
+                    binding.tvLogContent.append("\n$line")
+                    binding.logScrollView.post {
+                        binding.logScrollView.fullScroll(View.FOCUS_DOWN)
+                    }
+                }
+            }
+        }
+
+        binding.btnOpenLogs.setOnClickListener {
+            AppLog.refreshFromLogcat()
+            binding.tvLogContent.text = AppLog.getAllLogs()
+            binding.logModalContainer.visibility = View.VISIBLE
+            binding.logScrollView.post {
+                binding.logScrollView.fullScroll(View.FOCUS_DOWN)
+            }
+        }
+
+        binding.btnCloseLogs.setOnClickListener {
+            binding.logModalContainer.visibility = View.GONE
+        }
+
+        binding.logModalContainer.setOnClickListener {
+            binding.logModalContainer.visibility = View.GONE
+        }
+
+        binding.btnClearLogs.setOnClickListener {
+            AppLog.clear()
+            binding.tvLogContent.text = AppLog.getAllLogs()
+        }
+
+        binding.btnCopyLogs.setOnClickListener {
+            val cm = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            val all = AppLog.getAllLogs()
+            cm.setPrimaryClip(ClipData.newPlainText("CamMonitor Logs", all))
+            binding.tvCopyLabel.text = "COPIED!"
+            Toast.makeText(this, "Logs copied to clipboard!", Toast.LENGTH_SHORT).show()
+            mainHandler.postDelayed({
+                if (!isFinishing && !isDestroyed) {
+                    binding.tvCopyLabel.text = "COPY ALL"
+                }
+            }, 1500)
+        }
+    }
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
+        AppLog.i("Intent", "onNewIntent() action=${intent?.action}")
         checkAttachedUsbDevice()
     }
 
@@ -182,9 +246,35 @@ class MainActivity : CameraActivity(), SensorEventListener {
             intent?.getParcelableExtra(UsbManager.EXTRA_DEVICE)
         } ?: getDefaultCamera()
 
-        if (device != null && !isCameraOpened()) {
-            requestPermission(device)
+        if (device != null) {
+            logUsbDevice(device)
+            if (!isCameraOpened()) {
+                AppLog.i("USB", "Calling requestPermission() for ${device.deviceName}")
+                requestPermission(device)
+            } else {
+                AppLog.i("USB", "Camera already opened for ${device.deviceName}")
+            }
+        } else {
+            AppLog.i("USB", "No USB camera device found yet")
         }
+    }
+
+    private fun logUsbDevice(d: UsbDevice) {
+        val ifaces = StringBuilder()
+        for (i in 0 until d.interfaceCount) {
+            val iface = d.getInterface(i)
+            val desc = when (iface.interfaceClass) {
+                14 -> "Video/UVC"
+                1  -> "Audio/UAC"
+                6  -> "StillImage/PTP (Warning: camera is in PTP mode, not UVC)"
+                8  -> "MassStorage"
+                else -> "Class ${iface.interfaceClass}"
+            }
+            ifaces.append("\n  • Iface #$i: $desc (endpoints=${iface.endpointCount})")
+        }
+        val vid = String.format("%04X", d.vendorId)
+        val pid = String.format("%04X", d.productId)
+        AppLog.i("USB", "Device attached: ${d.deviceName} (VID=$vid, PID=$pid, ifaces=${d.interfaceCount})$ifaces")
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -193,6 +283,7 @@ class MainActivity : CameraActivity(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
+        AppLog.d("Lifecycle", "onResume()")
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
         }
@@ -202,12 +293,15 @@ class MainActivity : CameraActivity(), SensorEventListener {
 
     override fun onPause() {
         super.onPause()
+        AppLog.d("Lifecycle", "onPause()")
         running = false
         analysisHandler?.removeCallbacks(analysisLoop)
         sensorManager.unregisterListener(this)
     }
 
     override fun onDestroy() {
+        AppLog.d("Lifecycle", "onDestroy()")
+        AppLog.setListener(null)
         running = false
         analysisHandler?.removeCallbacksAndMessages(null)
         analysisThread?.quitSafely()
@@ -242,11 +336,19 @@ class MainActivity : CameraActivity(), SensorEventListener {
         code: ICameraStateCallBack.State,
         msg: String?
     ) {
+        val stateName = when (code) {
+            ICameraStateCallBack.State.OPENED -> "OPENED"
+            ICameraStateCallBack.State.CLOSED -> "CLOSED"
+            ICameraStateCallBack.State.ERROR  -> "ERROR"
+        }
+        AppLog.i("CameraState", "onCameraState: $stateName (msg=${msg ?: "none"})")
+
         runOnUiThread {
             when (code) {
                 ICameraStateCallBack.State.OPENED -> {
                     use720p = false  // reset on success
                     hideSplash()
+                    AppLog.i("CameraState", "Live stream visible on screen!")
                 }
 
                 ICameraStateCallBack.State.CLOSED -> {
@@ -255,9 +357,9 @@ class MainActivity : CameraActivity(), SensorEventListener {
 
                 ICameraStateCallBack.State.ERROR -> {
                     val errMsg = msg ?: "unknown"
-                    // If 1080p was rejected, silently fall back to 720p and retry
                     if (!use720p) {
                         use720p = true
+                        AppLog.w("CameraState", "1080p stream failed, falling back to 720p...")
                         showSplash("Adjusting resolution…")
                         mainHandler.postDelayed({ restartCamera() }, 800)
                     } else {
