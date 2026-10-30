@@ -79,9 +79,9 @@ class MainActivity : CameraActivity(), SensorEventListener {
     // ── Controls visibility ────────────────────────────────────────────────
     private var controlsVisible = true
 
-    // ── Resolution fallback ────────────────────────────────────────────────
-    /** Flipped to true automatically if 1080p is rejected by the camera. */
-    private var use720p = false
+    // ── Resolution ─────────────────────────────────────────────────────────
+    /** 1280x720 MJPEG is the native primary stream of Nikon Z50 II */
+    private var use720p = true
 
     // ── Permissions ────────────────────────────────────────────────────────
     private val permissionLauncher = registerForActivityResult(
@@ -131,12 +131,13 @@ class MainActivity : CameraActivity(), SensorEventListener {
      * FORMAT_MJPEG is required for Nikon UVC webcam mode.
      */
     override fun getCameraRequest(): CameraRequest {
-        val res = if (use720p) "1280x720" else "1920x1080"
-        AppLog.i("Camera", "Requesting stream: $res MJPEG OpenGL")
+        val width = if (use720p) 1280 else 1920
+        val height = if (use720p) 720 else 1080
+        AppLog.i("Camera", "Requesting stream: ${width}x${height} MJPEG (RenderMode.NORMAL)")
         return CameraRequest.Builder()
-            .setPreviewWidth(if (use720p) 1280 else 1920)
-            .setPreviewHeight(if (use720p) 720  else 1080)
-            .setRenderMode(CameraRequest.RenderMode.OPENGL)
+            .setPreviewWidth(width)
+            .setPreviewHeight(height)
+            .setRenderMode(CameraRequest.RenderMode.NORMAL)
             .setDefaultRotateType(RotateType.ANGLE_0)
             .setPreviewFormat(CameraRequest.PreviewFormat.FORMAT_MJPEG)
             .create()
@@ -248,14 +249,9 @@ class MainActivity : CameraActivity(), SensorEventListener {
 
         if (device != null) {
             logUsbDevice(device)
-            if (!isCameraOpened()) {
-                AppLog.i("USB", "Calling requestPermission() for ${device.deviceName}")
-                requestPermission(device)
-            } else {
-                AppLog.i("USB", "Camera already opened for ${device.deviceName}")
-            }
+            AppLog.i("USB", "Attached USB device present: ${device.deviceName} (cameraOpened=${isCameraOpened()})")
         } else {
-            AppLog.i("USB", "No USB camera device found yet")
+            AppLog.i("USB", "No USB camera device found in intent/system yet")
         }
     }
 
@@ -346,7 +342,6 @@ class MainActivity : CameraActivity(), SensorEventListener {
         runOnUiThread {
             when (code) {
                 ICameraStateCallBack.State.OPENED -> {
-                    use720p = false  // reset on success
                     hideSplash()
                     AppLog.i("CameraState", "Live stream visible on screen!")
                 }
