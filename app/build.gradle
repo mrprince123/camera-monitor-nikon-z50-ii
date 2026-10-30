@@ -25,4 +25,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     // AndroidUSBCamera UVC library (JitPack) — includes the Kotlin runtime
     implementation 'com.github.ernestp.AndroidUSBCamera:libausbc:3.6.0'
+    implementation 'com.github.ernestp.AndroidUSBCamera:libuvc:3.6.0'
 }

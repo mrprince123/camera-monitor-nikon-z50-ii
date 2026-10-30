@@ -7,9 +7,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.widget.Toast
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.SurfaceTexture
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -17,34 +17,32 @@ import android.hardware.SensorManager
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
-import android.view.LayoutInflater
+import android.view.Gravity
+import android.view.TextureView
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.jiangdg.ausbc.MultiCameraClient
-import com.jiangdg.ausbc.callback.ICameraStateCallBack
-import com.jiangdg.ausbc.camera.bean.CameraRequest
-import com.jiangdg.ausbc.base.CameraActivity
-import com.jiangdg.ausbc.render.env.RotateType
-import com.jiangdg.ausbc.widget.AspectRatioTextureView
-import com.jiangdg.ausbc.widget.IAspectRatio
 import com.example.cameramonitor.databinding.ActivityMainBinding
-import kotlin.math.atan2
+import com.jiangdg.ausbc.widget.AspectRatioTextureView
 import kotlin.math.abs
+import kotlin.math.atan2
 
 /**
  * Full-screen field monitor for the Nikon Z50 II (and any UVC/webcam-mode camera).
  *
- * Connect:  Camera → USB-C data cable → this phone
- * Camera setting:  Menu → Setup → USB → UVC / Webcam
+ * Connect: Camera → USB-C data cable → this phone
+ * Camera setting: Menu → Setup → USB → UVC / Webcam
  *
  * Overlays:
  *  • Rule-of-thirds grid
@@ -53,10 +51,11 @@ import kotlin.math.abs
  *  • Zebra stripes (over-exposure warning)
  *  • Focus peaking (edge-detection highlight)
  */
-class MainActivity : CameraActivity(), SensorEventListener {
+class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var binding: ActivityMainBinding
     private var textureView: AspectRatioTextureView? = null
+    private lateinit var usbCameraManager: UsbCameraManager
 
     // ── Sensor ─────────────────────────────────────────────────────────────
     private lateinit var sensorManager: SensorManager
@@ -68,20 +67,16 @@ class MainActivity : CameraActivity(), SensorEventListener {
     private var frameBmp: Bitmap? = null
     private var maskBmp: Bitmap? = null
     private var pixels = IntArray(0)
-    private var luma   = IntArray(0)
+    private var luma = IntArray(0)
     private var maskPx = IntArray(0)
     @Volatile private var running = false
 
-    private val analysisWidth  = 320
+    private val analysisWidth = 320
     private val zebraThreshold = 235   // luma 0-255; blown highlights
-    private val peakThreshold  = 40    // Sobel-like edge strength for peaking
+    private val peakThreshold = 40    // Sobel-like edge strength for peaking
 
     // ── Controls visibility ────────────────────────────────────────────────
     private var controlsVisible = true
-
-    // ── Resolution ─────────────────────────────────────────────────────────
-    /** 1280x720 MJPEG is the native primary stream of Nikon Z50 II */
-    private var use720p = true
 
     // ── Permissions ────────────────────────────────────────────────────────
     private val permissionLauncher = registerForActivityResult(
@@ -91,7 +86,7 @@ class MainActivity : CameraActivity(), SensorEventListener {
         val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
         AppLog.i("Perm", "Permission result: RECORD_AUDIO=$audioGranted, CAMERA=$cameraGranted")
         if (audioGranted || cameraGranted) {
-            checkAttachedUsbDevice()
+            usbCameraManager.scanForConnectedDevices()
         }
     }
 
@@ -113,47 +108,89 @@ class MainActivity : CameraActivity(), SensorEventListener {
     }
 
     // ──────────────────────────────────────────────────────────────────────
-    //  CameraActivity required overrides
+    //  Activity Lifecycle
     // ──────────────────────────────────────────────────────────────────────
 
-    override fun getRootView(layoutInflater: LayoutInflater): View {
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        return binding.root
-    }
-
-    override fun getCameraView(): IAspectRatio =
-        textureView ?: AspectRatioTextureView(this).also { textureView = it }
-
-    override fun getCameraViewContainer(): ViewGroup = binding.cameraViewContainer
-
-    /**
-     * Request MJPEG stream. Automatically falls back from 1080p to 720p on error.
-     * FORMAT_MJPEG is required for Nikon UVC webcam mode.
-     */
-    override fun getCameraRequest(): CameraRequest {
-        val width = if (use720p) 1280 else 1920
-        val height = if (use720p) 720 else 1080
-        AppLog.i("Camera", "Requesting stream: ${width}x${height} MJPEG (RenderMode.NORMAL)")
-        return CameraRequest.Builder()
-            .setPreviewWidth(width)
-            .setPreviewHeight(height)
-            .setRenderMode(CameraRequest.RenderMode.NORMAL)
-            .setDefaultRotateType(RotateType.ANGLE_0)
-            .setPreviewFormat(CameraRequest.PreviewFormat.FORMAT_MJPEG)
-            .create()
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
-    //  initView — called once after the layout is inflated
-    // ──────────────────────────────────────────────────────────────────────
-
-    override fun initView() {
-        super.initView()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        AppLog.i("Lifecycle", "onCreate() started")
         setupWindowFlags()
 
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        initView()
+    }
+
+    private fun initView() {
         AppLog.i("App", "CamMonitor initView() ready")
 
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+
+        // Setup TextureView for video rendering
+        val tv = AspectRatioTextureView(this).apply {
+            setAspectRatio(UsbCameraManager.PREVIEW_WIDTH, UsbCameraManager.PREVIEW_HEIGHT)
+            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                    AppLog.i("UI", "SurfaceTexture available (${width}x${height})")
+                    usbCameraManager.setPreviewSurface(surface)
+                }
+
+                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+                    AppLog.d("UI", "SurfaceTexture size changed (${width}x${height})")
+                }
+
+                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                    AppLog.i("UI", "SurfaceTexture destroyed")
+                    usbCameraManager.setPreviewSurface(null)
+                    return true
+                }
+
+                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+            }
+        }
+        this.textureView = tv
+        binding.cameraViewContainer.addView(
+            tv,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        )
+
+        // Initialize Centralized UsbCameraManager
+        usbCameraManager = UsbCameraManager(this) { oldState, newState ->
+            runOnUiThread {
+                AppLog.d("UI", "State update UI: $oldState → $newState")
+                when (newState) {
+                    UsbCameraManager.UsbConnectionState.STREAMING -> {
+                        hideSplash()
+                        AppLog.i("UI", "Live camera stream is streaming on screen")
+                    }
+                    UsbCameraManager.UsbConnectionState.DISCONNECTED -> {
+                        showSplash("Connect your camera\n\nCamera → USB-C → this phone")
+                    }
+                    UsbCameraManager.UsbConnectionState.DETECTED -> {
+                        showSplash("Nikon Camera Detected…")
+                    }
+                    UsbCameraManager.UsbConnectionState.PERMISSION_PENDING -> {
+                        showSplash("Requesting USB Permission…")
+                    }
+                    UsbCameraManager.UsbConnectionState.PERMISSION_GRANTED,
+                    UsbCameraManager.UsbConnectionState.OPENING -> {
+                        showSplash("Opening Camera (1280x720 MJPEG)…")
+                    }
+                    UsbCameraManager.UsbConnectionState.ERROR -> {
+                        showSplash(
+                            "⚠ Camera connection error\n\n" +
+                            "• Set camera USB mode to UVC/Webcam\n" +
+                            "• Reconnect USB-C data cable"
+                        )
+                    }
+                }
+            }
+        }
 
         // Start dedicated background analysis thread
         analysisThread = HandlerThread("cam-analysis").also {
@@ -178,12 +215,32 @@ class MainActivity : CameraActivity(), SensorEventListener {
         // Initial splash
         showSplash("Connect your camera")
 
-        // Ensure runtime permissions so Android does not block USB audio/video composite devices
+        // Start USB manager & register receiver
+        usbCameraManager.start()
+
+        // Ensure runtime permissions
         checkPermissions()
+
+        // Check if device was launched via USB_DEVICE_ATTACHED intent
+        checkInitialIntent(intent)
+    }
+
+    private fun checkInitialIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action
+        AppLog.i("Intent", "checkInitialIntent() action=$action")
+        val device: UsbDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+        }
+        if (device != null) {
+            usbCameraManager.onNewIntentAttachedDevice(device)
+        }
     }
 
     private fun setupLogsUi() {
-        // Real-time listener for log updates when modal is visible
         AppLog.setListener { line ->
             runOnUiThread {
                 if (binding.logModalContainer.visibility == View.VISIBLE) {
@@ -235,64 +292,40 @@ class MainActivity : CameraActivity(), SensorEventListener {
         super.onNewIntent(intent)
         setIntent(intent)
         AppLog.i("Intent", "onNewIntent() action=${intent?.action}")
-        checkAttachedUsbDevice()
-    }
 
-    private fun checkAttachedUsbDevice() {
-        if (isFinishing || isDestroyed) return
         val device: UsbDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent?.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
         } else {
             @Suppress("DEPRECATION")
             intent?.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-        } ?: getDefaultCamera()
-
-        if (device != null) {
-            logUsbDevice(device)
-            AppLog.i("USB", "Attached USB device present: ${device.deviceName} (cameraOpened=${isCameraOpened()})")
-        } else {
-            AppLog.i("USB", "No USB camera device found in intent/system yet")
         }
+        usbCameraManager.onNewIntentAttachedDevice(device)
     }
-
-    private fun logUsbDevice(d: UsbDevice) {
-        val ifaces = StringBuilder()
-        for (i in 0 until d.interfaceCount) {
-            val iface = d.getInterface(i)
-            val desc = when (iface.interfaceClass) {
-                14 -> "Video/UVC"
-                1  -> "Audio/UAC"
-                6  -> "StillImage/PTP (Warning: camera is in PTP mode, not UVC)"
-                8  -> "MassStorage"
-                else -> "Class ${iface.interfaceClass}"
-            }
-            ifaces.append("\n  • Iface #$i: $desc (endpoints=${iface.endpointCount})")
-        }
-        val vid = String.format("%04X", d.vendorId)
-        val pid = String.format("%04X", d.productId)
-        AppLog.i("USB", "Device attached: ${d.deviceName} (VID=$vid, PID=$pid, ifaces=${d.interfaceCount})$ifaces")
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
-    //  Lifecycle
-    // ──────────────────────────────────────────────────────────────────────
 
     override fun onResume() {
         super.onResume()
-        AppLog.d("Lifecycle", "onResume()")
+        AppLog.d("Lifecycle", "onResume() [state=${usbCameraManager.state}]")
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
         }
         running = true
         analysisHandler?.post(analysisLoop)
+
+        // Only scan if not currently active or pending
+        if (usbCameraManager.state == UsbCameraManager.UsbConnectionState.DISCONNECTED) {
+            usbCameraManager.scanForConnectedDevices()
+        }
     }
 
     override fun onPause() {
         super.onPause()
-        AppLog.d("Lifecycle", "onPause()")
+        AppLog.d("Lifecycle", "onPause() - keeping USB connection alive")
         running = false
         analysisHandler?.removeCallbacks(analysisLoop)
         sensorManager.unregisterListener(this)
+        // CRITICAL: Do NOT disconnect or close the USB camera here.
+        // On Android, requesting USB permission displays a dialog that triggers onPause().
+        // Closing here would immediately destroy the stream upon permission confirmation.
     }
 
     override fun onDestroy() {
@@ -306,6 +339,8 @@ class MainActivity : CameraActivity(), SensorEventListener {
         frameBmp?.recycle(); frameBmp = null
         maskBmp?.recycle();  maskBmp  = null
         mainHandler.removeCallbacksAndMessages(null)
+
+        usbCameraManager.stop()
         super.onDestroy()
     }
 
@@ -324,62 +359,6 @@ class MainActivity : CameraActivity(), SensorEventListener {
     }
 
     // ──────────────────────────────────────────────────────────────────────
-    //  Camera state callbacks from the UVC library
-    // ──────────────────────────────────────────────────────────────────────
-
-    override fun onCameraState(
-        self: MultiCameraClient.ICamera,
-        code: ICameraStateCallBack.State,
-        msg: String?
-    ) {
-        val stateName = when (code) {
-            ICameraStateCallBack.State.OPENED -> "OPENED"
-            ICameraStateCallBack.State.CLOSED -> "CLOSED"
-            ICameraStateCallBack.State.ERROR  -> "ERROR"
-        }
-        AppLog.i("CameraState", "onCameraState: $stateName (msg=${msg ?: "none"})")
-
-        runOnUiThread {
-            when (code) {
-                ICameraStateCallBack.State.OPENED -> {
-                    hideSplash()
-                    AppLog.i("CameraState", "Live stream visible on screen!")
-                }
-
-                ICameraStateCallBack.State.CLOSED -> {
-                    showSplash("Connect your camera\n\nCamera → USB-C → this phone")
-                }
-
-                ICameraStateCallBack.State.ERROR -> {
-                    val errMsg = msg ?: "unknown"
-                    if (!use720p) {
-                        use720p = true
-                        AppLog.w("CameraState", "1080p stream failed, falling back to 720p...")
-                        showSplash("Adjusting resolution…")
-                        mainHandler.postDelayed({ restartCamera() }, 800)
-                    } else {
-                        showSplash(
-                            "⚠ Camera error\n\n" +
-                            "• Set camera USB mode to UVC/Webcam\n" +
-                            "• Use a data-capable USB-C cable\n\n" +
-                            "(${errMsg.take(60)})"
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    /** Clean restart used for resolution fallback. */
-    private fun restartCamera() {
-        if (isFinishing || isDestroyed) return
-        try {
-            closeCamera()
-            mainHandler.postDelayed({ openCamera() }, 500)
-        } catch (_: Exception) { /* ignore */ }
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
     //  Splash screen helpers
     // ──────────────────────────────────────────────────────────────────────
 
@@ -388,14 +367,14 @@ class MainActivity : CameraActivity(), SensorEventListener {
         if (binding.splashLayout.visibility == View.VISIBLE) return
         binding.splashLayout.alpha = 0f
         binding.splashLayout.visibility = View.VISIBLE
-        binding.splashLayout.animate().alpha(1f).setDuration(400).start()
+        binding.splashLayout.animate().alpha(1f).setDuration(300).start()
     }
 
     private fun hideSplash() {
         if (binding.splashLayout.visibility != View.VISIBLE) return
         binding.splashLayout.animate()
             .alpha(0f)
-            .setDuration(400)
+            .setDuration(300)
             .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     binding.splashLayout.visibility = View.GONE
