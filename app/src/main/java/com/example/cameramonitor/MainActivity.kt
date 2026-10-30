@@ -159,35 +159,65 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             )
         )
 
+        // Wire Diagnostic HUD toggle
+        binding.btnToggleHud.setOnClickListener {
+            val isVis = binding.hudPanel.visibility == View.VISIBLE
+            binding.hudPanel.visibility = if (isVis) View.GONE else View.VISIBLE
+        }
+
         // Initialize Centralized UsbCameraManager
         usbCameraManager = UsbCameraManager(this) { oldState, newState ->
             runOnUiThread {
                 AppLog.d("UI", "State update UI: $oldState → $newState")
                 when (newState) {
-                    UsbCameraManager.UsbConnectionState.STREAMING -> {
+                    UsbCameraManager.UsbConnectionState.FRAMES_RECEIVED,
+                    UsbCameraManager.UsbConnectionState.PREVIEW_RENDERING -> {
                         hideSplash()
-                        AppLog.i("UI", "Live camera stream is streaming on screen")
+                        AppLog.i("UI", "Live camera stream confirmed rendering on screen!")
                     }
                     UsbCameraManager.UsbConnectionState.DISCONNECTED -> {
                         showSplash("Connect your camera\n\nCamera → USB-C → this phone")
                     }
-                    UsbCameraManager.UsbConnectionState.DETECTED -> {
+                    UsbCameraManager.UsbConnectionState.USB_DETECTED -> {
                         showSplash("Nikon Camera Detected…")
                     }
                     UsbCameraManager.UsbConnectionState.PERMISSION_PENDING -> {
-                        showSplash("Requesting USB Permission…")
+                        showSplash("Requesting USB Permission…\nTap 'OK' on system dialog")
                     }
-                    UsbCameraManager.UsbConnectionState.PERMISSION_GRANTED,
-                    UsbCameraManager.UsbConnectionState.OPENING -> {
-                        showSplash("Opening Camera (1280x720 MJPEG)…")
+                    UsbCameraManager.UsbConnectionState.USB_PERMISSION_GRANTED,
+                    UsbCameraManager.UsbConnectionState.USB_DEVICE_OPENED -> {
+                        showSplash("USB Device Opened…")
+                    }
+                    UsbCameraManager.UsbConnectionState.UVC_INITIALIZED,
+                    UsbCameraManager.UsbConnectionState.PREVIEW_STARTED -> {
+                        showSplash("Starting UVC Stream\n(1280x720 MJPEG)…")
                     }
                     UsbCameraManager.UsbConnectionState.ERROR -> {
+                        val err = usbCameraManager.lastError
                         showSplash(
                             "⚠ Camera connection error\n\n" +
+                            (if (err.isNotEmpty()) "($err)\n\n" else "") +
                             "• Set camera USB mode to UVC/Webcam\n" +
                             "• Reconnect USB-C data cable"
                         )
                     }
+                }
+            }
+        }
+
+        // Wire real-time Diagnostic HUD metrics
+        usbCameraManager.diagnosticsListener = { diag ->
+            runOnUiThread {
+                binding.hudTvState.text = "State: ${diag.state}"
+                binding.hudTvDevice.text = "Device: ${diag.deviceName} [${diag.vidPid}] Perm=${diag.permissionGranted}"
+                binding.hudTvResolution.text = "Format: ${diag.resolutionFormat}"
+                binding.hudTvFrames.text = "Frames: ${diag.totalFrames} (${diag.fps} fps) | ${diag.lastFrameSizeBytes}B"
+                binding.hudTvSurface.text = "Surface: ${diag.surfaceStatus}"
+                if (diag.lastError.isNotEmpty()) {
+                    binding.hudTvError.visibility = View.VISIBLE
+                    binding.hudTvError.text = "Error: ${diag.lastError}"
+                } else {
+                    binding.hudTvError.visibility = View.GONE
                 }
             }
         }
@@ -311,10 +341,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         running = true
         analysisHandler?.post(analysisLoop)
 
-        // Only scan if not currently active or pending
-        if (usbCameraManager.state == UsbCameraManager.UsbConnectionState.DISCONNECTED) {
-            usbCameraManager.scanForConnectedDevices()
-        }
+        // Check if permission was granted or device state changed while paused
+        usbCameraManager.onResumeCheck()
     }
 
     override fun onPause() {
@@ -447,6 +475,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     // ──────────────────────────────────────────────────────────────────────
 
     private fun analyzeFrame() {
+        if (usbCameraManager.state != UsbCameraManager.UsbConnectionState.PREVIEW_RENDERING &&
+            usbCameraManager.state != UsbCameraManager.UsbConnectionState.FRAMES_RECEIVED) {
+            return
+        }
         val tv = textureView ?: return
         if (!tv.isAvailable || tv.width == 0 || tv.height == 0) return
 

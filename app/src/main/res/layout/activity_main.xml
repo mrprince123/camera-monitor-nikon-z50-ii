@@ -220,37 +220,156 @@
     </LinearLayout>
 
     <!-- ════════════════════════════════════════════════════════
-         DIAGNOSTIC LOGS BUTTON (top-left)
+         TOP ACTIONS BAR (top-left: LOGS + HUD + DIAGNOSTICS)
     ════════════════════════════════════════════════════════ -->
     <LinearLayout
-        android:id="@+id/btnOpenLogs"
         android:layout_width="wrap_content"
-        android:layout_height="36dp"
+        android:layout_height="wrap_content"
         android:layout_gravity="top|start"
         android:layout_marginStart="14dp"
         android:layout_marginTop="14dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="@drawable/bg_log_pill"
-        android:paddingStart="12dp"
-        android:paddingEnd="14dp"
-        android:clickable="true"
-        android:focusable="true">
+        android:orientation="vertical">
 
-        <ImageView
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:src="@drawable/ic_logs"
-            android:layout_marginEnd="6dp" />
-
-        <TextView
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="LOGS"
-            android:textColor="#CCFFFFFF"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.08" />
+            android:orientation="horizontal">
+
+            <!-- LOGS BUTTON -->
+            <LinearLayout
+                android:id="@+id/btnOpenLogs"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_log_pill"
+                android:paddingStart="10dp"
+                android:paddingEnd="12dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_logs"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="LOGS"
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+            </LinearLayout>
+
+            <!-- HUD TOGGLE BUTTON -->
+            <LinearLayout
+                android:id="@+id/btnToggleHud"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_log_pill"
+                android:paddingStart="10dp"
+                android:paddingEnd="12dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📊"
+                    android:textSize="11sp"
+                    android:layout_marginEnd="4dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="HUD"
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- DIAGNOSTIC HUD PANEL (real-time stream metrics) -->
+        <LinearLayout
+            android:id="@+id/hudPanel"
+            android:layout_width="290dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#CC0A0F16"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:visibility="visible">
+
+            <TextView
+                android:id="@+id/hudTvState"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="USB State: DISCONNECTED"
+                android:textColor="#FF64D2FF"
+                android:textSize="10.5sp"
+                android:fontFamily="monospace"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/hudTvDevice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Device: None"
+                android:textColor="#CCFFFFFF"
+                android:textSize="9.5sp"
+                android:fontFamily="monospace"
+                android:layout_marginTop="2dp" />
+
+            <TextView
+                android:id="@+id/hudTvResolution"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Format: 1280x720 MJPEG"
+                android:textColor="#CCFFFFFF"
+                android:textSize="9.5sp"
+                android:fontFamily="monospace"
+                android:layout_marginTop="2dp" />
+
+            <TextView
+                android:id="@+id/hudTvFrames"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Frames: 0 (0 fps)"
+                android:textColor="#FF30D158"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp" />
+
+            <TextView
+                android:id="@+id/hudTvSurface"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Surface: Waiting"
+                android:textColor="#CCFFFFFF"
+                android:textSize="9.5sp"
+                android:fontFamily="monospace"
+                android:layout_marginTop="2dp" />
+
+            <TextView
+                android:id="@+id/hudTvError"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Last Error: None"
+                android:textColor="#FFFF453A"
+                android:textSize="9.5sp"
+                android:fontFamily="monospace"
+                android:layout_marginTop="2dp"
+                android:visibility="gone" />
+        </LinearLayout>
+
     </LinearLayout>
 
     <!-- ════════════════════════════════════════════════════════
