@@ -1,13 +1,19 @@
 package com.example.cameramonitor
 
+import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbManager
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
@@ -15,6 +21,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -72,6 +80,32 @@ class MainActivity : CameraActivity(), SensorEventListener {
     /** Flipped to true automatically if 1080p is rejected by the camera. */
     private var use720p = false
 
+    // ── Permissions ────────────────────────────────────────────────────────
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
+        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
+        if (audioGranted || cameraGranted) {
+            checkAttachedUsbDevice()
+        }
+    }
+
+    private fun checkPermissions() {
+        val hasAudio = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCamera = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasAudio || !hasCamera) {
+            permissionLauncher.launch(
+                arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
+            )
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     //  CameraActivity required overrides
     // ──────────────────────────────────────────────────────────────────────
@@ -82,7 +116,7 @@ class MainActivity : CameraActivity(), SensorEventListener {
     }
 
     override fun getCameraView(): IAspectRatio =
-        AspectRatioTextureView(this).also { textureView = it }
+        textureView ?: AspectRatioTextureView(this).also { textureView = it }
 
     override fun getCameraViewContainer(): ViewGroup = binding.cameraViewContainer
 
@@ -128,6 +162,29 @@ class MainActivity : CameraActivity(), SensorEventListener {
 
         // Initial splash
         showSplash("Connect your camera")
+
+        // Ensure runtime permissions so Android does not block USB audio/video composite devices
+        checkPermissions()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        checkAttachedUsbDevice()
+    }
+
+    private fun checkAttachedUsbDevice() {
+        if (isFinishing || isDestroyed) return
+        val device: UsbDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+        } ?: getDefaultCamera()
+
+        if (device != null && !isCameraOpened()) {
+            requestPermission(device)
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────

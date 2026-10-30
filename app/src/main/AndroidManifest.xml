@@ -1,7 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- USB host mode — no runtime permission dialog needed -->
+    <!-- USB host mode -->
     <uses-feature android:name="android.hardware.usb.host" android:required="true" />
+
+    <!-- Audio & Camera permissions needed for USB video/audio composite devices (e.g. Nikon Z50 II) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:allowBackup="false"
@@ -14,6 +18,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
             android:keepScreenOn="true">
