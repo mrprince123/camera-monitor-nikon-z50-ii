@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        Camera-style icon toggle button.
+        Uses CheckBox (android:button="@null") so we get proper state_checked
+        propagation to both the background selector AND the drawableTint.
+    -->
+    <style name="IconToggleButton">
+        <item name="android:layout_width">52dp</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:button">@null</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/bg_icon_btn</item>
+        <item name="android:drawableTint">@color/icon_tint</item>
+        <item name="android:drawablePadding">0dp</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:text">""</item>
+        <item name="android:textSize">0sp</item>
+        <item name="android:focusable">true</item>
+        <item name="android:clickable">true</item>
+    </style>
+
+</resources>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Digital level / horizon indicator — like Nikon Z virtual horizon icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="28"
+    android:viewportHeight="28">
+
+    <!-- Main horizon line -->
+    <path
+        android:pathData="M2,14 L26,14"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000" />
+
+    <!-- Left wing tick (upper) -->
+    <path
+        android:pathData="M4,14 L4,10"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000" />
+
+    <!-- Right wing tick (upper) -->
+    <path
+        android:pathData="M24,14 L24,10"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000" />
+
+    <!-- Centre zero mark (small vertical tick above line) -->
+    <path
+        android:pathData="M14,14 L14,8"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000" />
+
+    <!-- Centre circle — the "bubble" -->
+    <path
+        android:pathData="M14,14 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5" />
+
+    <!-- Centre filled dot -->
+    <path
+        android:pathData="M14,14 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0"
+        android:fillColor="#FFFFFFFF" />
+
+    <!-- Small degree marks -->
+    <path
+        android:pathData="M8,14 L8,11"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M20,14 L20,11"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1"
+        android:fillColor="#00000000" />
+</vector>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Focus peaking icon — corner bracket AF frame with centre crosshair, like Nikon focus assist icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="28"
+    android:viewportHeight="28">
+
+    <!-- Top-left bracket -->
+    <path
+        android:pathData="M2,10 L2,2 L10,2"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Top-right bracket -->
+    <path
+        android:pathData="M18,2 L26,2 L26,10"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Bottom-right bracket -->
+    <path
+        android:pathData="M26,18 L26,26 L18,26"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Bottom-left bracket -->
+    <path
+        android:pathData="M10,26 L2,26 L2,18"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Centre crosshair — horizontal -->
+    <path
+        android:pathData="M10,14 L18,14"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round" />
+
+    <!-- Centre crosshair — vertical -->
+    <path
+        android:pathData="M14,10 L14,18"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round" />
+
+    <!-- Centre dot -->
+    <path
+        android:pathData="M14,14 m-1.2,0 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0"
+        android:fillColor="#FFFFFFFF" />
+
+    <!-- Small peaking sparkle dots at corners (focus "sharpness" indicators) -->
+    <path android:pathData="M7,7 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M21,7 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M7,21 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M21,21 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" android:fillColor="#FFFFFFFF" />
+</vector>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Luminance histogram — 5-bar bell curve shape, like Nikon histogram display icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="28"
+    android:viewportHeight="28">
+
+    <!-- Baseline -->
+    <path
+        android:pathData="M2,24 L26,24"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000" />
+
+    <!-- Left axis -->
+    <path
+        android:pathData="M3,4 L3,24"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000" />
+
+    <!-- Bar 1 — height 7 -->
+    <path
+        android:pathData="M4,24 L4,17 L8,17 L8,24 Z"
+        android:fillColor="#FFFFFFFF" />
+
+    <!-- Bar 2 — height 13 -->
+    <path
+        android:pathData="M9,24 L9,11 L13,11 L13,24 Z"
+        android:fillColor="#FFFFFFFF" />
+
+    <!-- Bar 3 (peak) — height 18 -->
+    <path
+        android:pathData="M14,24 L14,6 L18,6 L18,24 Z"
+        android:fillColor="#FFFFFFFF" />
+
+    <!-- Bar 4 — height 12 -->
+    <path
+        android:pathData="M19,24 L19,12 L23,12 L23,24 Z"
+        android:fillColor="#FFFFFFFF" />
+
+    <!-- Bar 5 — height 6 -->
+    <path
+        android:pathData="M24,24 L24,18 L27,18 L27,24 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

@@ -15,11 +15,12 @@
 | **Focus** | Green edge-detection highlight for focus peaking |
 
 - **Plug-and-play** — Android launches the app automatically the moment you connect the camera
-- **Tap anywhere** to show / hide the control buttons (smooth fade animation)
+- **Nikon camera screen UI** — sleek camera-style circular menu icons with active blue glowing indicators and labels (GRID, LEVEL, HISTO, ZEBRA, FOCUS)
+- **Tap anywhere** to show / hide the control icons (smooth fade animation)
 - **Screen always on** while the app is open
 - **Full-screen landscape**, system bars hidden
 - **No runtime permissions** — USB host mode needs none
-- **Dark premium UI** with glassmorphic toggle buttons and a custom app icon
+- **Clean camera logo** — modern Google Camera-inspired minimalist lens logo on splash screen and app icon
 
 ---
 

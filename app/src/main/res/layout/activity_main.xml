@@ -5,7 +5,7 @@
     android:background="#000000"
     android:keepScreenOn="true">
 
-    <!-- ── Live camera feed (filled by CameraActivity) ── -->
+    <!-- ── Live camera feed container ── -->
     <FrameLayout
         android:id="@+id/cameraViewContainer"
         android:layout_width="match_parent"
@@ -17,66 +17,65 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- ═══════════════════════════════════════════════════
-         SPLASH / WAITING SCREEN  (shown when no camera connected)
-    ════════════════════════════════════════════════════ -->
+    <!-- ════════════════════════════════════════════════════════
+         SPLASH / WAITING SCREEN
+    ════════════════════════════════════════════════════════ -->
     <LinearLayout
         android:id="@+id/splashLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="center"
-        android:background="#FF0D0F14"
+        android:background="#FF0D1117"
         android:visibility="visible">
 
-        <!-- Logo -->
+        <!-- App icon (camera aperture logo) -->
         <ImageView
             android:id="@+id/splashLogo"
-            android:layout_width="140dp"
-            android:layout_height="140dp"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
             android:src="@drawable/ic_splash_logo"
             android:scaleType="fitCenter"
-            android:layout_marginBottom="28dp" />
+            android:layout_marginBottom="22dp" />
 
         <!-- App name -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="CamMonitor"
-            android:textColor="#E0E6F0"
-            android:textSize="28sp"
+            android:textColor="#E8EEF6"
+            android:textSize="26sp"
             android:textStyle="bold"
-            android:letterSpacing="0.08"
-            android:layout_marginBottom="10dp" />
+            android:letterSpacing="0.06"
+            android:layout_marginBottom="6dp" />
 
-        <!-- Sub-tagline -->
+        <!-- Tagline -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Nikon Z50 II Field Monitor"
-            android:textColor="#6688A0C0"
-            android:textSize="13sp"
-            android:letterSpacing="0.04"
-            android:layout_marginBottom="48dp" />
+            android:text="Nikon Z50 II · Field Monitor"
+            android:textColor="#4466889A"
+            android:textSize="12sp"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="44dp" />
 
-        <!-- Plug icon + message -->
+        <!-- Status pill -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="#22FFFFFF"
-            android:paddingLeft="24dp"
-            android:paddingRight="24dp"
-            android:paddingTop="14dp"
-            android:paddingBottom="14dp">
+            android:background="#1AFFFFFF"
+            android:paddingLeft="20dp"
+            android:paddingRight="20dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp">
 
-            <!-- Simple USB plug icon drawn as text emoji -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🔌"
-                android:textSize="22sp"
+                android:textSize="18sp"
                 android:layout_marginEnd="10dp" />
 
             <TextView
@@ -84,83 +83,139 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Connect your camera"
-                android:textColor="#AAC8D8E8"
-                android:textSize="15sp"
+                android:textColor="#88AABFCE"
+                android:textSize="14sp"
                 android:letterSpacing="0.02" />
         </LinearLayout>
 
     </LinearLayout>
 
-    <!-- ═══════════════════════════════════════════════════
-         CONTROL BUTTONS  (right-side panel, hidden/shown by tap)
-    ════════════════════════════════════════════════════ -->
+    <!-- ════════════════════════════════════════════════════════
+         CAMERA-STYLE ICON CONTROL PANEL (right side, vertical)
+         Tap anywhere on the screen to show/hide.
+    ════════════════════════════════════════════════════════ -->
     <LinearLayout
         android:id="@+id/controls"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end|center_vertical"
-        android:layout_marginEnd="12dp"
+        android:layout_marginEnd="10dp"
         android:orientation="vertical"
         android:visibility="visible">
 
-        <ToggleButton
-            android:id="@+id/tgGrid"
-            android:layout_width="80dp"
-            android:layout_height="44dp"
-            android:textOn="Grid"
-            android:textOff="Grid"
-            android:textSize="12sp"
-            android:textColor="#FFFFFFFF"
-            android:background="@drawable/bg_toggle_btn"
-            android:stateListAnimator="@null"
-            android:layout_marginBottom="6dp" />
+        <!-- ── Grid button ── -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginBottom="8dp">
 
-        <ToggleButton
-            android:id="@+id/tgLevel"
-            android:layout_width="80dp"
-            android:layout_height="44dp"
-            android:textOn="Level"
-            android:textOff="Level"
-            android:textSize="12sp"
-            android:textColor="#FFFFFFFF"
-            android:background="@drawable/bg_toggle_btn"
-            android:stateListAnimator="@null"
-            android:layout_marginBottom="6dp" />
+            <CheckBox
+                android:id="@+id/tgGrid"
+                style="@style/IconToggleButton"
+                android:drawableTop="@drawable/ic_grid" />
 
-        <ToggleButton
-            android:id="@+id/tgHist"
-            android:layout_width="80dp"
-            android:layout_height="44dp"
-            android:textOn="Histo"
-            android:textOff="Histo"
-            android:textSize="12sp"
-            android:textColor="#FFFFFFFF"
-            android:background="@drawable/bg_toggle_btn"
-            android:stateListAnimator="@null"
-            android:layout_marginBottom="6dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="GRID"
+                android:textColor="#77FFFFFF"
+                android:textSize="8sp"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
 
-        <ToggleButton
-            android:id="@+id/tgZebra"
-            android:layout_width="80dp"
-            android:layout_height="44dp"
-            android:textOn="Zebra"
-            android:textOff="Zebra"
-            android:textSize="12sp"
-            android:textColor="#FFFFFFFF"
-            android:background="@drawable/bg_toggle_btn"
-            android:stateListAnimator="@null"
-            android:layout_marginBottom="6dp" />
+        <!-- ── Level button ── -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginBottom="8dp">
 
-        <ToggleButton
-            android:id="@+id/tgPeak"
-            android:layout_width="80dp"
-            android:layout_height="44dp"
-            android:textOn="Focus"
-            android:textOff="Focus"
-            android:textSize="12sp"
-            android:textColor="#FFFFFFFF"
-            android:background="@drawable/bg_toggle_btn"
-            android:stateListAnimator="@null" />
+            <CheckBox
+                android:id="@+id/tgLevel"
+                style="@style/IconToggleButton"
+                android:drawableTop="@drawable/ic_level" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="LEVEL"
+                android:textColor="#77FFFFFF"
+                android:textSize="8sp"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+        <!-- ── Histogram button ── -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginBottom="8dp">
+
+            <CheckBox
+                android:id="@+id/tgHist"
+                style="@style/IconToggleButton"
+                android:drawableTop="@drawable/ic_histogram" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HISTO"
+                android:textColor="#77FFFFFF"
+                android:textSize="8sp"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+        <!-- ── Zebra button ── -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginBottom="8dp">
+
+            <CheckBox
+                android:id="@+id/tgZebra"
+                style="@style/IconToggleButton"
+                android:drawableTop="@drawable/ic_zebra" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ZEBRA"
+                android:textColor="#77FFFFFF"
+                android:textSize="8sp"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+        <!-- ── Focus Peaking button ── -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <CheckBox
+                android:id="@+id/tgPeak"
+                style="@style/IconToggleButton"
+                android:drawableTop="@drawable/ic_focus" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="FOCUS"
+                android:textColor="#77FFFFFF"
+                android:textSize="8sp"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
 
     </LinearLayout>
 

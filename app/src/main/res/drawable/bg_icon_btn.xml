@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Circular background for camera-style icon toggle buttons.
+    Checked  → filled blue circle (active glow)
+    Pressed  → mid-opacity blue circle
+    Default  → very dark semi-transparent with subtle white border
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Active / checked -->
+    <item android:state_checked="true">
+        <shape android:shape="oval">
+            <solid android:color="#CC00B4FF" />
+            <stroke android:width="1.5dp" android:color="#FF00D4FF" />
+        </shape>
+    </item>
+
+    <!-- Pressed -->
+    <item android:state_pressed="true">
+        <shape android:shape="oval">
+            <solid android:color="#8800B4FF" />
+            <stroke android:width="1.5dp" android:color="#8800B4FF" />
+        </shape>
+    </item>
+
+    <!-- Default / unchecked -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#1AFFFFFF" />
+            <stroke android:width="1dp" android:color="#33FFFFFF" />
+        </shape>
+    </item>
+
+</selector>

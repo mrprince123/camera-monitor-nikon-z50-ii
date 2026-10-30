@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zebra stripes / overexposure warning icon — diagonal stripes in a box -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="28"
+    android:viewportHeight="28">
+
+    <!-- Clipped diagonal zebra stripes inside the box -->
+    <group>
+        <clip-path android:pathData="M3,6 L25,6 L25,22 L3,22 Z" />
+
+        <!-- Diagonal lines (NW→SE) at even spacing -->
+        <path android:pathData="M-2,22 L6,6"
+            android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5" android:fillColor="#00000000"/>
+        <path android:pathData="M2,22 L10,6"
+            android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5" android:fillColor="#00000000"/>
+        <path android:pathData="M6,22 L14,6"
+            android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5" android:fillColor="#00000000"/>
+        <path android:pathData="M10,22 L18,6"
+            android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5" android:fillColor="#00000000"/>
+        <path android:pathData="M14,22 L22,6"
+            android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5" android:fillColor="#00000000"/>
+        <path android:pathData="M18,22 L26,6"
+            android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5" android:fillColor="#00000000"/>
+        <path android:pathData="M22,22 L30,6"
+            android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5" android:fillColor="#00000000"/>
+    </group>
+
+    <!-- Box outline (drawn on top of stripes so the frame is always clean) -->
+    <path
+        android:pathData="M3,6 L25,6 L25,22 L3,22 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.8" />
+
+    <!-- Small "!" overexposure indicator top-right -->
+    <path
+        android:pathData="M22.5,3 L22.5,5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M22.5,5.8 m-0.4,0 a0.4,0.4 0 1,0 0.8,0 a0.4,0.4 0 1,0 -0.8,0"
+        android:fillColor="#FFFFFFFF" />
+</vector>
