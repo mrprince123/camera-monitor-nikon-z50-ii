@@ -8,6 +8,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
@@ -30,38 +31,25 @@ import kotlin.math.atan2
 import kotlin.math.abs
 
 /**
- * Main activity — extends CameraActivity from AndroidUSBCamera library which
- * handles all UVC / USB-host plumbing automatically (plug-and-play, no extra setup).
+ * Main activity — extends CameraActivity from AndroidUSBCamera library.
  *
- * Features on top of the live feed:
- *  • Rule-of-thirds grid
- *  • Digital level (accelerometer)
- *  • Luminance histogram
- *  • Zebra stripes (over-exposure warning)
- *  • Focus peaking (edge-detection highlight)
+ * ⚠️ EMULATOR NOTE:
+ * Android emulators do NOT support USB host mode. There is no workaround.
+ * This app must run on a REAL Android phone with USB OTG/host support.
+ * Connect:  Camera → USB-C cable → Android Phone  (NOT the Mac)
+ *
+ * Camera setup (Nikon Z50 II):
+ *   Menu → Setup → USB → UVC / Webcam mode
  */
 class MainActivity : CameraActivity(), SensorEventListener {
 
     private lateinit var binding: ActivityMainBinding
-
-    // TextureView created in getCameraView() and kept so we can sample pixels.
     private var textureView: AspectRatioTextureView? = null
 
-    // ── Screen-keep-on & full-screen ──────────────────────────────────────
-    private fun setupWindowFlags() {
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
-            systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
-    }
-
-    // ── Sensor ────────────────────────────────────────────────────────────
+    // ── Sensor ─────────────────────────────────────────────────────────────
     private lateinit var sensorManager: SensorManager
 
-    // ── Background analysis ───────────────────────────────────────────────
+    // ── Background analysis ────────────────────────────────────────────────
     private val mainHandler = Handler(Looper.getMainLooper())
     private var analysisThread: HandlerThread? = null
     private var analysisHandler: Handler? = null
@@ -73,14 +61,35 @@ class MainActivity : CameraActivity(), SensorEventListener {
     @Volatile private var running = false
 
     private val analysisWidth = 320
-    private val zebraThreshold = 235   // luma 0..255; pixels above this are clipped
-    private val peakThreshold = 40     // Sobel-like edge strength for focus peaking
+    private val zebraThreshold = 235
+    private val peakThreshold  = 40
 
-    // ── Controls visibility toggle ────────────────────────────────────────
+    // ── Controls visibility ────────────────────────────────────────────────
     private var controlsVisible = true
 
+    // ── Resolution fallback state ──────────────────────────────────────────
+    private var use720p = false   // flip to true if 1080p fails
+
+    // ── Emulator detection ─────────────────────────────────────────────────
+    private val isEmulator: Boolean by lazy {
+        (Build.BRAND.startsWith("generic") ||
+         Build.DEVICE.startsWith("generic") ||
+         Build.FINGERPRINT.startsWith("generic") ||
+         Build.FINGERPRINT.startsWith("unknown") ||
+         Build.HARDWARE.contains("goldfish") ||
+         Build.HARDWARE.contains("ranchu") ||
+         Build.MODEL.contains("google_sdk") ||
+         Build.MODEL.contains("Emulator") ||
+         Build.MODEL.contains("Android SDK built") ||
+         Build.MANUFACTURER.contains("Genymotion") ||
+         Build.PRODUCT.contains("sdk") ||
+         Build.PRODUCT.contains("vbox") ||
+         Build.PRODUCT.contains("emulator") ||
+         Build.PRODUCT.contains("simulator"))
+    }
+
     // ──────────────────────────────────────────────────────────────────────
-    //  CameraActivity hooks
+    //  CameraActivity required overrides
     // ──────────────────────────────────────────────────────────────────────
 
     override fun getRootView(layoutInflater: LayoutInflater): View {
@@ -88,24 +97,26 @@ class MainActivity : CameraActivity(), SensorEventListener {
         return binding.root
     }
 
-    /** The library needs us to provide the SurfaceView/TextureView it draws into. */
     override fun getCameraView(): IAspectRatio =
         AspectRatioTextureView(this).also { textureView = it }
 
     override fun getCameraViewContainer(): ViewGroup = binding.cameraViewContainer
 
-    /** Request 1080p MJPEG in landscape. */
+    /**
+     * Request MJPEG preview. Falls back to 720p after first error.
+     * FORMAT_MJPEG is required for Nikon UVC webcam mode.
+     */
     override fun getCameraRequest(): CameraRequest =
         CameraRequest.Builder()
-            .setPreviewWidth(1920)
-            .setPreviewHeight(1080)
+            .setPreviewWidth(if (use720p) 1280 else 1920)
+            .setPreviewHeight(if (use720p) 720  else 1080)
             .setRenderMode(CameraRequest.RenderMode.OPENGL)
             .setDefaultRotateType(RotateType.ANGLE_0)
             .setPreviewFormat(CameraRequest.PreviewFormat.FORMAT_MJPEG)
             .create()
 
     // ──────────────────────────────────────────────────────────────────────
-    //  initView — called once after the layout is inflated
+    //  initView
     // ──────────────────────────────────────────────────────────────────────
 
     override fun initView() {
@@ -128,8 +139,15 @@ class MainActivity : CameraActivity(), SensorEventListener {
         binding.tgZebra.setOnCheckedChangeListener { _, v -> o.showZebra = v; o.invalidate() }
         binding.tgPeak.setOnCheckedChangeListener  { _, v -> o.showPeak  = v; o.invalidate() }
 
-        // Tap anywhere → show / hide controls (smooth fade)
+        // Tap anywhere → show / hide controls
         binding.root.setOnClickListener { toggleControls() }
+
+        // Show appropriate splash message immediately
+        if (isEmulator) {
+            showEmulatorWarning()
+        } else {
+            showSplash("Connect your camera")
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -138,6 +156,11 @@ class MainActivity : CameraActivity(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
+        if (isEmulator) {
+            // Don't attempt USB access on emulator — it will crash or hang
+            showEmulatorWarning()
+            return
+        }
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
         }
@@ -165,6 +188,20 @@ class MainActivity : CameraActivity(), SensorEventListener {
     }
 
     // ──────────────────────────────────────────────────────────────────────
+    //  Window setup
+    // ──────────────────────────────────────────────────────────────────────
+
+    private fun setupWindowFlags() {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
     //  Camera state callbacks
     // ──────────────────────────────────────────────────────────────────────
 
@@ -175,12 +212,44 @@ class MainActivity : CameraActivity(), SensorEventListener {
     ) {
         runOnUiThread {
             when (code) {
-                ICameraStateCallBack.State.OPENED -> hideSplash()
-                ICameraStateCallBack.State.CLOSED -> showSplash("Connect your camera")
-                ICameraStateCallBack.State.ERROR  -> showSplash("Camera error: ${msg ?: "unknown"}")
+                ICameraStateCallBack.State.OPENED -> {
+                    use720p = false  // reset on successful open
+                    hideSplash()
+                }
+                ICameraStateCallBack.State.CLOSED -> {
+                    showSplash("Connect your camera\n\nCamera → USB-C → this phone")
+                }
+                ICameraStateCallBack.State.ERROR -> {
+                    val errMsg = msg ?: "unknown"
+                    if (!use720p && (errMsg.contains("1920") || errMsg.contains("format", true)
+                            || errMsg.contains("resolution", true) || errMsg.contains("open", true))) {
+                        // 1080p rejected — try 720p automatically
+                        use720p = true
+                        showSplash("Retrying at 720p…")
+                        mainHandler.postDelayed({ restartCamera() }, 800)
+                    } else {
+                        showSplash(buildErrorHelp(errMsg))
+                    }
+                }
             }
         }
     }
+
+    /** Attempt a camera restart (e.g. after resolution fallback). */
+    private fun restartCamera() {
+        if (isFinishing || isDestroyed) return
+        try {
+            closeCamera()
+            mainHandler.postDelayed({ openCamera() }, 500)
+        } catch (_: Exception) { /* ignore */ }
+    }
+
+    private fun buildErrorHelp(raw: String): String =
+        "⚠ Camera error\n\n" +
+        "• Set camera USB mode to UVC/Webcam\n" +
+        "• Use a data-capable USB-C cable\n" +
+        "• Tap screen to retry\n\n" +
+        "(${raw.take(60)})"
 
     // ──────────────────────────────────────────────────────────────────────
     //  Splash helpers
@@ -188,13 +257,18 @@ class MainActivity : CameraActivity(), SensorEventListener {
 
     private fun showSplash(message: String) {
         binding.statusText.text = message
+        binding.splashEmulatorNote.visibility = View.GONE
         if (binding.splashLayout.visibility == View.VISIBLE) return
         binding.splashLayout.alpha = 0f
         binding.splashLayout.visibility = View.VISIBLE
-        binding.splashLayout.animate()
-            .alpha(1f)
-            .setDuration(400)
-            .start()
+        binding.splashLayout.animate().alpha(1f).setDuration(400).start()
+    }
+
+    private fun showEmulatorWarning() {
+        binding.statusText.text = "Emulator detected"
+        binding.splashEmulatorNote.visibility = View.VISIBLE
+        binding.splashLayout.alpha = 1f
+        binding.splashLayout.visibility = View.VISIBLE
     }
 
     private fun hideSplash() {
@@ -215,6 +289,8 @@ class MainActivity : CameraActivity(), SensorEventListener {
     // ──────────────────────────────────────────────────────────────────────
 
     private fun toggleControls() {
+        // If on emulator, tapping retries nothing — just return
+        if (isEmulator) return
         controlsVisible = !controlsVisible
         val target = if (controlsVisible) 1f else 0f
         binding.controls.animate()
@@ -228,22 +304,21 @@ class MainActivity : CameraActivity(), SensorEventListener {
     }
 
     // ──────────────────────────────────────────────────────────────────────
-    //  Sensor — device tilt for the digital level line
+    //  Sensor — phone tilt for digital level line
     // ──────────────────────────────────────────────────────────────────────
 
     override fun onSensorChanged(e: SensorEvent) {
-        // In landscape the relevant tilt axis is Y/X
         var a = Math.toDegrees(atan2(e.values[1].toDouble(), e.values[0].toDouble())).toFloat()
         if (a > 90f) a -= 180f else if (a < -90f) a += 180f
         val o = binding.overlay
-        o.tiltDeg = o.tiltDeg * 0.8f + a * 0.2f   // low-pass filter for smooth line
+        o.tiltDeg = o.tiltDeg * 0.8f + a * 0.2f
         if (o.showLevel) o.invalidate()
     }
 
     override fun onAccuracyChanged(s: Sensor?, accuracy: Int) {}
 
     // ──────────────────────────────────────────────────────────────────────
-    //  Background analysis loop (~7 fps keeps the UI thread free)
+    //  Background analysis loop (~7 fps)
     // ──────────────────────────────────────────────────────────────────────
 
     private val analysisLoop = object : Runnable {
@@ -254,14 +329,12 @@ class MainActivity : CameraActivity(), SensorEventListener {
             mainHandler.post {
                 if (!isFinishing && !isDestroyed) {
                     updateVideoRect()
-                    updateCameraStatus()
                 }
             }
             analysisHandler?.postDelayed(this, 150)
         }
     }
 
-    /** Keep the overlay aware of where the TextureView actually is. */
     private fun updateVideoRect() {
         val tv = textureView ?: return
         if (tv.width == 0 || tv.height == 0) return
@@ -271,14 +344,6 @@ class MainActivity : CameraActivity(), SensorEventListener {
         val t = (a[1] - b[1]).toFloat()
         binding.overlay.videoRect.set(l, t, l + tv.width, t + tv.height)
         binding.overlay.invalidate()
-    }
-
-    /** Fallback camera-connected check (the onCameraState callback is primary). */
-    private fun updateCameraStatus() {
-        if (isCameraOpened() && binding.splashLayout.visibility == View.VISIBLE) hideSplash()
-        else if (!isCameraOpened() && binding.splashLayout.visibility != View.VISIBLE) {
-            showSplash("Connect your camera")
-        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -303,15 +368,10 @@ class MainActivity : CameraActivity(), SensorEventListener {
         }
 
         val bmp = frameBmp ?: return
-        try {
-            tv.getBitmap(bmp)
-        } catch (_: Exception) { return }
-
+        try { tv.getBitmap(bmp) } catch (_: Exception) { return }
         bmp.getPixels(pixels, 0, w, 0, 0, w, h)
 
         val o = binding.overlay
-
-        // ─ Histogram (64 buckets over full luma range) ─
         val hist = IntArray(64)
         for (i in pixels.indices) {
             val p = pixels[i]
@@ -324,18 +384,14 @@ class MainActivity : CameraActivity(), SensorEventListener {
             if (!isFinishing && !isDestroyed) { o.hist = hist; o.invalidate() }
         }
 
-        // ─ Zebra + Focus peaking mask ─
         if (o.showZebra || o.showPeak) {
             java.util.Arrays.fill(maskPx, 0)
             for (y in 1 until h - 1) {
                 for (x in 1 until w - 1) {
                     val i = y * w + x
                     when {
-                        // Zebra: diagonal stripe pattern over blown highlights
                         o.showZebra && luma[i] >= zebraThreshold && ((x + y) and 7) < 4 ->
                             maskPx[i] = 0xCCFF2222.toInt()
-
-                        // Focus peaking: bright green on high-frequency edges
                         o.showPeak -> {
                             val gx = abs(luma[i + 1] - luma[i - 1])
                             val gy = abs(luma[i + w] - luma[i - w])
@@ -345,7 +401,6 @@ class MainActivity : CameraActivity(), SensorEventListener {
                 }
             }
             maskBmp?.setPixels(maskPx, 0, w, 0, 0, w, h)
-            // Copy so the worker thread can't clobber what the UI thread is drawing
             val snapshot = maskBmp?.copy(Bitmap.Config.ARGB_8888, false)
             mainHandler.post {
                 if (!isFinishing && !isDestroyed) { o.mask = snapshot; o.invalidate() }
