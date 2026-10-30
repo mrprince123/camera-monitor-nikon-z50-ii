@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:keepScreenOn="true">
+
+    <!-- ── Live camera feed (filled by CameraActivity) ── -->
+    <FrameLayout
+        android:id="@+id/cameraViewContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- ── Analysis overlay: grid / level / histogram / zebra / peaking ── -->
+    <com.example.cameramonitor.OverlayView
+        android:id="@+id/overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- ═══════════════════════════════════════════════════
+         SPLASH / WAITING SCREEN  (shown when no camera connected)
+    ════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/splashLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#FF0D0F14"
+        android:visibility="visible">
+
+        <!-- Logo -->
+        <ImageView
+            android:id="@+id/splashLogo"
+            android:layout_width="140dp"
+            android:layout_height="140dp"
+            android:src="@drawable/ic_splash_logo"
+            android:scaleType="fitCenter"
+            android:layout_marginBottom="28dp" />
+
+        <!-- App name -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CamMonitor"
+            android:textColor="#E0E6F0"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="10dp" />
+
+        <!-- Sub-tagline -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nikon Z50 II Field Monitor"
+            android:textColor="#6688A0C0"
+            android:textSize="13sp"
+            android:letterSpacing="0.04"
+            android:layout_marginBottom="48dp" />
+
+        <!-- Plug icon + message -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#22FFFFFF"
+            android:paddingLeft="24dp"
+            android:paddingRight="24dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="14dp">
+
+            <!-- Simple USB plug icon drawn as text emoji -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔌"
+                android:textSize="22sp"
+                android:layout_marginEnd="10dp" />
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Connect your camera"
+                android:textColor="#AAC8D8E8"
+                android:textSize="15sp"
+                android:letterSpacing="0.02" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- ═══════════════════════════════════════════════════
+         CONTROL BUTTONS  (right-side panel, hidden/shown by tap)
+    ════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/controls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:visibility="visible">
+
+        <ToggleButton
+            android:id="@+id/tgGrid"
+            android:layout_width="80dp"
+            android:layout_height="44dp"
+            android:textOn="Grid"
+            android:textOff="Grid"
+            android:textSize="12sp"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/bg_toggle_btn"
+            android:stateListAnimator="@null"
+            android:layout_marginBottom="6dp" />
+
+        <ToggleButton
+            android:id="@+id/tgLevel"
+            android:layout_width="80dp"
+            android:layout_height="44dp"
+            android:textOn="Level"
+            android:textOff="Level"
+            android:textSize="12sp"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/bg_toggle_btn"
+            android:stateListAnimator="@null"
+            android:layout_marginBottom="6dp" />
+
+        <ToggleButton
+            android:id="@+id/tgHist"
+            android:layout_width="80dp"
+            android:layout_height="44dp"
+            android:textOn="Histo"
+            android:textOff="Histo"
+            android:textSize="12sp"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/bg_toggle_btn"
+            android:stateListAnimator="@null"
+            android:layout_marginBottom="6dp" />
+
+        <ToggleButton
+            android:id="@+id/tgZebra"
+            android:layout_width="80dp"
+            android:layout_height="44dp"
+            android:textOn="Zebra"
+            android:textOff="Zebra"
+            android:textSize="12sp"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/bg_toggle_btn"
+            android:stateListAnimator="@null"
+            android:layout_marginBottom="6dp" />
+
+        <ToggleButton
+            android:id="@+id/tgPeak"
+            android:layout_width="80dp"
+            android:layout_height="44dp"
+            android:textOn="Focus"
+            android:textOff="Focus"
+            android:textSize="12sp"
+            android:textColor="#FFFFFFFF"
+            android:background="@drawable/bg_toggle_btn"
+            android:stateListAnimator="@null" />
+
+    </LinearLayout>
+
+</FrameLayout>
