@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer rim in red -->
+    <item>
+        <shape android:shape="oval">
+            <size android:width="68dp" android:height="68dp" />
+            <solid android:color="#00000000" />
+            <stroke android:width="3.5dp" android:color="#FFFF2222" />
+        </shape>
+    </item>
+    <!-- Inner square stop button -->
+    <item android:top="20dp" android:bottom="20dp" android:left="20dp" android:right="20dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="4dp" />
+            <solid android:color="#FFFF2222" />
+        </shape>
+    </item>
+</layer-list>
+

@@ -65,11 +65,73 @@
                 android:letterSpacing="0.08" />
         </LinearLayout>
 
+        <!-- RECORDING BANNER (ZineControl style: Blinking dot + REC 00:00) -->
+        <LinearLayout
+            android:id="@+id/recordingBanner"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_status_pill"
+            android:paddingStart="12dp"
+            android:paddingEnd="14dp"
+            android:layout_marginStart="10dp"
+            android:visibility="gone">
+
+            <View
+                android:id="@+id/recDot"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/bg_status_dot_disconnected"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/tvRecTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="REC 00:00"
+                android:textColor="#FFFF4D4D"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08" />
+        </LinearLayout>
+
         <!-- Spacer -->
         <View
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1" />
+
+        <!-- GALLERY / MEDIA BROWSER BUTTON -->
+        <LinearLayout
+            android:id="@+id/btnOpenGallery"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_log_pill"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_marginEnd="6dp"
+                android:src="@drawable/ic_gallery"
+                android:tint="#FFFFC400" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.08"
+                android:text="SD MEDIA"
+                android:textColor="#E2E8F0"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <!-- LOGS BUTTON -->
         <LinearLayout
@@ -340,7 +402,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:gravity="center">
+            android:gravity="center"
+            android:layout_marginBottom="10dp">
 
             <CheckBox
                 android:id="@+id/tgPeak"
@@ -359,7 +422,251 @@
                 android:layout_marginTop="4dp" />
         </LinearLayout>
 
+        <!-- ── False Color button ── -->
+        <LinearLayout
+            android:id="@+id/itemFalseColor"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginBottom="10dp">
+
+            <CheckBox
+                android:id="@+id/tgFalseColor"
+                style="@style/IconToggleButton"
+                android:drawableTop="@drawable/ic_false_color" />
+
+            <TextView
+                android:id="@+id/lblFalseColor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="FALSE"
+                android:textColor="@color/label_tint"
+                android:textSize="8.5sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+
+        <!-- ── Waveform button ── -->
+        <LinearLayout
+            android:id="@+id/itemWaveform"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginBottom="10dp">
+
+            <CheckBox
+                android:id="@+id/tgWaveform"
+                style="@style/IconToggleButton"
+                android:drawableTop="@drawable/ic_waveform" />
+
+            <TextView
+                android:id="@+id/lblWaveform"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="WAVE"
+                android:textColor="@color/label_tint"
+                android:textSize="8.5sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+
+        <!-- ── Aspect Ratio Guides button ── -->
+        <LinearLayout
+            android:id="@+id/itemGuides"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <CheckBox
+                android:id="@+id/tgGuides"
+                style="@style/IconToggleButton"
+                android:drawableTop="@drawable/ic_guides" />
+
+            <TextView
+                android:id="@+id/lblGuides"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="GUIDE"
+                android:textColor="@color/label_tint"
+                android:textSize="8.5sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+
     </LinearLayout>
+
+    <!-- ════════════════════════════════════════════════════════
+         QUICK SETTING SELECTOR MODAL DIALOG
+    ════════════════════════════════════════════════════════ -->
+    <FrameLayout
+        android:id="@+id/settingModalContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#D9000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:background="@drawable/bg_log_dialog"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:id="@+id/tvSettingModalTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="SELECT VALUE"
+                    android:textColor="#FFFFC400"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+
+                <TextView
+                    android:id="@+id/btnCloseSettingModal"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/bg_log_pill"
+                    android:gravity="center"
+                    android:text="✕"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/settingOptionsContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="12dp" />
+            </HorizontalScrollView>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ════════════════════════════════════════════════════════
+         SD CARD MEDIA BROWSER MODAL (Phase 6)
+    ════════════════════════════════════════════════════════ -->
+    <FrameLayout
+        android:id="@+id/galleryModalContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#D9000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="16dp"
+            android:background="@drawable/bg_log_dialog"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Header Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:id="@+id/tvGalleryTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Camera SD Card Media"
+                    android:textColor="#FFFFC400"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.04" />
+
+                <!-- Refresh Button -->
+                <TextView
+                    android:id="@+id/btnRefreshGallery"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:gravity="center"
+                    android:text="REFRESH"
+                    android:textColor="#FFFFC400"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:background="@drawable/bg_log_pill"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginEnd="8dp" />
+
+                <!-- Close Button -->
+                <TextView
+                    android:id="@+id/btnCloseGallery"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:gravity="center"
+                    android:text="✕"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_log_pill"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </LinearLayout>
+
+            <!-- Loading indicator / empty message -->
+            <TextView
+                android:id="@+id/tvGalleryStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Loading media from camera SD card…"
+                android:textColor="#99FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center"
+                android:paddingTop="20dp"
+                android:paddingBottom="20dp"
+                android:visibility="gone" />
+
+            <!-- Media Items ScrollView / Flex -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="#E607090C"
+                android:padding="8dp">
+
+                <LinearLayout
+                    android:id="@+id/galleryItemsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+        </LinearLayout>
+    </FrameLayout>
 
     <!-- ════════════════════════════════════════════════════════
          SPLASH / WAITING SCREEN (Modern Yellow & Charcoal Design)

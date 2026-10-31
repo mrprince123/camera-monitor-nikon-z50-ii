@@ -44,11 +44,23 @@ class CameraConnectionManager(
     private val _activeBackend = MutableStateFlow<CameraBackend?>(null)
     val activeBackend: StateFlow<CameraBackend?> = _activeBackend.asStateFlow()
 
+    private val _properties = MutableStateFlow<Map<CameraPropertyType, CameraPropertyValue>>(emptyMap())
+    val properties: StateFlow<Map<CameraPropertyType, CameraPropertyValue>> = _properties.asStateFlow()
+
+    private val _isMovieRecording = MutableStateFlow(false)
+    val isMovieRecording: StateFlow<Boolean> = _isMovieRecording.asStateFlow()
+
+    private val _afTargetState = MutableStateFlow<AfTargetState?>(null)
+    val afTargetState: StateFlow<AfTargetState?> = _afTargetState.asStateFlow()
+
     @Volatile private var currentSessionId = 0L
     @Volatile private var activeDevice: UsbDevice? = null
     @Volatile private var activeSurfaceTexture: SurfaceTexture? = null
 
     private var backendStateJob: Job? = null
+    private var backendPropsJob: Job? = null
+    private var backendRecJob: Job? = null
+    private var backendAfJob: Job? = null
     private var isReceiverRegistered = false
 
     private val permissionManager = UsbPermissionManager(context, usbManager) { device, granted, sessionId ->
@@ -257,6 +269,21 @@ class CameraConnectionManager(
             }
         }
 
+        backendPropsJob?.cancel()
+        backendPropsJob = scope.launch {
+            backend.properties.collect { p -> _properties.value = p }
+        }
+
+        backendRecJob?.cancel()
+        backendRecJob = scope.launch {
+            backend.isMovieRecording.collect { rec -> _isMovieRecording.value = rec }
+        }
+
+        backendAfJob?.cancel()
+        backendAfJob = scope.launch {
+            backend.afTargetState.collect { af -> _afTargetState.value = af }
+        }
+
         // Connect backend
         val result = backend.connect(device, sessionId)
         if (result.isFailure) {
@@ -275,6 +302,9 @@ class CameraConnectionManager(
                         }
                     }
                 }
+                backendPropsJob?.cancel()
+                backendRecJob?.cancel()
+                backendAfJob?.cancel()
                 uvcBackend.connect(device, sessionId)
             }
         }
@@ -283,10 +313,20 @@ class CameraConnectionManager(
     private suspend fun disconnectActiveBackend(reason: String) {
         backendStateJob?.cancel()
         backendStateJob = null
+        backendPropsJob?.cancel()
+        backendPropsJob = null
+        backendRecJob?.cancel()
+        backendRecJob = null
+        backendAfJob?.cancel()
+        backendAfJob = null
 
         val b = _activeBackend.value
         _activeBackend.value = null
         b?.disconnect(reason)
+
+        _properties.value = emptyMap()
+        _isMovieRecording.value = false
+        _afTargetState.value = null
     }
 
     // ── Remote Controls Proxies ────────────────────────────────────────────
@@ -314,6 +354,11 @@ class CameraConnectionManager(
     suspend fun setTouchFocusPoint(point: PointF): Result<Unit> {
         val b = _activeBackend.value ?: return Result.failure(IllegalStateException("No active camera"))
         return b.setTouchFocusPoint(point)
+    }
+
+    suspend fun setProperty(property: CameraPropertyType, value: CameraPropertyValue): Result<Unit> {
+        val b = _activeBackend.value ?: return Result.failure(IllegalStateException("No active camera"))
+        return b.setProperty(property, value)
     }
 }
 

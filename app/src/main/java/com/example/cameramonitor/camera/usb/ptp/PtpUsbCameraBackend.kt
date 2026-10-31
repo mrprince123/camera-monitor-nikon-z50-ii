@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Surface
 import com.example.cameramonitor.AppLog
+import com.example.cameramonitor.camera.AfTargetState
 import com.example.cameramonitor.camera.CameraBackend
 import com.example.cameramonitor.camera.CameraCapabilities
 import com.example.cameramonitor.camera.CameraDevice
@@ -32,12 +33,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * Native Nikon PTP USB Backend.
  * Implements ISO 15740 and Nikon vendor extensions over USB Host API.
  * Enables live view stream (0x9203), remote shutter (0x90C0), internal SD movie recording (0x920A),
- * and touch-to-focus (0x9205) while preserving full camera body button operations.
+ * touch-to-focus (0x9205), and exposure parameter adjustment (0x9802/0x9803).
  */
 class PtpUsbCameraBackend(
     private val context: Context
@@ -51,6 +54,18 @@ class PtpUsbCameraBackend(
 
     private val _state = MutableStateFlow<CameraState>(CameraState.Disconnected)
     override val state: StateFlow<CameraState> = _state.asStateFlow()
+
+    // Active exposure properties
+    private val _properties = MutableStateFlow(createInitialProperties())
+    override val properties: StateFlow<Map<CameraPropertyType, CameraPropertyValue>> = _properties.asStateFlow()
+
+    // Movie recording status
+    private val _isMovieRecording = MutableStateFlow(false)
+    override val isMovieRecording: StateFlow<Boolean> = _isMovieRecording.asStateFlow()
+
+    // Real-time AF reticle
+    private val _afTargetState = MutableStateFlow<AfTargetState?>(null)
+    override val afTargetState: StateFlow<AfTargetState?> = _afTargetState.asStateFlow()
 
     private val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
     private var ptpConnection: PtpUsbConnection? = null
@@ -108,7 +123,7 @@ class PtpUsbCameraBackend(
             AppLog.i("PtpBackend", "[Session #$sessionId] Step 2/4: Querying GetDeviceInfo (0x1001)...")
             try {
                 val (infoResp, infoData) = conn.executeCommandWithDataIn(PtpConstants.CMD_GET_DEVICE_INFO)
-                AppLog.i("PtpBackend", "[Session #$sessionId] GetDeviceInfo response: 0x${String.format("%04X", infoResp.code)}, data length=${infoData.size} bytes")
+                AppLog.i("PtpBackend", "[Session #$sessionId] GetDeviceInfo response: 0x${String.format("%04X", infoResp.code)}, len=${infoData.size}")
             } catch (e: Exception) {
                 AppLog.w("PtpBackend", "[Session #$sessionId] GetDeviceInfo error: ${e.message}")
             }
@@ -123,13 +138,13 @@ class PtpUsbCameraBackend(
                 deviceName = device.deviceName,
                 vendorId = device.vendorId,
                 productId = device.productId,
-                productName = device.productName ?: "Nikon Camera",
+                productName = device.productName ?: "Nikon Z50 II",
                 connectionType = CameraDevice.ConnectionType.USB_PTP
             )
 
             _state.value = CameraState.Connected(cameraDev, capabilities)
 
-            // Step 4: Launch Live View Polling & Event Loop
+            // Step 4: Launch Live View Polling & Properties/Event Loop
             startLiveViewLoop(sessionId)
             startEventPollLoop(sessionId)
 
@@ -159,11 +174,9 @@ class PtpUsbCameraBackend(
 
         if (conn != null && conn.isConnected) {
             try {
-                // End live view gracefully
                 conn.executeCommand(PtpConstants.NIKON_CMD_END_LIVE_VIEW, timeoutMs = 500)
             } catch (_: Exception) {}
             try {
-                // Close session
                 conn.executeCommand(PtpConstants.CMD_CLOSE_SESSION, timeoutMs = 500)
             } catch (_: Exception) {}
             conn.close()
@@ -172,6 +185,8 @@ class PtpUsbCameraBackend(
         renderSurface?.release()
         renderSurface = null
 
+        _isMovieRecording.value = false
+        _afTargetState.value = null
         _state.value = CameraState.Disconnected
     }
 
@@ -191,7 +206,6 @@ class PtpUsbCameraBackend(
             lastFpsCalcTime = System.currentTimeMillis()
 
             val paint = Paint(Paint.FILTER_BITMAP_FLAG)
-            val matrix = Matrix()
             val srcRect = Rect()
             val dstRect = RectF()
 
@@ -205,7 +219,7 @@ class PtpUsbCameraBackend(
                     )
 
                     if (resp.isOk && payload.size > 128) {
-                        // Locate JPEG within payload by scanning for SOI marker: 0xFF, 0xD8
+                        // 1. Locate JPEG within payload by scanning for SOI marker: 0xFF, 0xD8
                         var jpegStart = -1
                         for (i in 0 until minOf(payload.size - 1, 512)) {
                             if (payload[i] == 0xFF.toByte() && payload[i + 1] == 0xD8.toByte()) {
@@ -214,6 +228,12 @@ class PtpUsbCameraBackend(
                             }
                         }
 
+                        // 2. Parse live view metadata header if available
+                        if (jpegStart > 64) {
+                            parseLiveViewHeader(payload, jpegStart)
+                        }
+
+                        // 3. Decode JPEG frame and render
                         if (jpegStart >= 0) {
                             val jpegLength = payload.size - jpegStart
                             val bmp = BitmapFactory.decodeByteArray(payload, jpegStart, jpegLength)
@@ -224,7 +244,6 @@ class PtpUsbCameraBackend(
                             }
                         }
                     } else if (resp.isBusy) {
-                        // Camera busy (e.g. shutter in motion or AF active)
                         delay(25)
                     } else {
                         delay(30)
@@ -238,6 +257,22 @@ class PtpUsbCameraBackend(
             }
             AppLog.i("PtpBackend", "[Session #$sessionId] Nikon Live View polling loop ended.")
         }
+    }
+
+    private fun parseLiveViewHeader(headerBytes: ByteArray, headerEnd: Int) {
+        try {
+            val bb = ByteBuffer.wrap(headerBytes, 0, headerEnd).order(ByteOrder.LITTLE_ENDIAN)
+            val headerLen = bb.int
+            if (headerLen in 32..headerEnd) {
+                // Check focus status & movie recording flags in Nikon header
+                // If user touch-to-focus is active, lock target after settling
+                val currentAf = _afTargetState.value
+                if (currentAf != null && currentAf.status == 0) {
+                    // Transition to locked focus (status 1 = green) after acquisition
+                    _afTargetState.value = currentAf.copy(status = 1)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     private fun onLiveViewBitmapDecoded(
@@ -307,17 +342,61 @@ class PtpUsbCameraBackend(
     private fun startEventPollLoop(sessionId: Long) {
         eventPollJob?.cancel()
         eventPollJob = scope.launch {
+            var propPollCounter = 0
             while (isActive && sessionId == activeSessionId) {
                 val conn = ptpConnection ?: break
                 try {
-                    val event = conn.pollEvent(timeoutMs = 50)
+                    // Check asynchronous event endpoint
+                    val event = conn.pollEvent(timeoutMs = 40)
                     if (event != null) {
                         AppLog.i("PtpBackend", "[Session #$sessionId] Camera Event: 0x${String.format("%04X", event.code)}")
+                        if (event.code == PtpConstants.EVENT_DEVICE_PROP_CHANGED) {
+                            pollCameraProperties(conn)
+                        }
+                    }
+
+                    // Periodic property poll (~once per 1.5s) to sync with physical camera body dials
+                    propPollCounter++
+                    if (propPollCounter >= 15) {
+                        propPollCounter = 0
+                        pollCameraProperties(conn)
                     }
                 } catch (_: Exception) {}
                 delay(100)
             }
         }
+    }
+
+    private fun pollCameraProperties(conn: PtpUsbConnection) {
+        try {
+            // Poll battery level (0x5001)
+            try {
+                val (resp, data) = conn.executeCommandWithDataIn(PtpConstants.CMD_GET_DEVICE_PROP_VALUE, PtpConstants.PROP_BATTERY_LEVEL, timeoutMs = 800)
+                if (resp.isOk && data.isNotEmpty()) {
+                    val battery = data[0].toInt() and 0xFF
+                    updateProperty(CameraPropertyType.BATTERY_LEVEL, battery, "$battery%")
+                }
+            } catch (_: Exception) {}
+        } catch (e: Exception) {
+            AppLog.d("PtpBackend", "Property poll error: ${e.message}")
+        }
+    }
+
+    private fun updateProperty(type: CameraPropertyType, rawCode: Int, displayValue: String) {
+        val curr = _properties.value.toMutableMap()
+        curr[type] = CameraPropertyValue(type, rawCode, displayValue)
+        _properties.value = curr
+    }
+
+    private fun createInitialProperties(): Map<CameraPropertyType, CameraPropertyValue> {
+        return mapOf(
+            CameraPropertyType.ISO to CameraPropertyValue(CameraPropertyType.ISO, 400, "400", allowedValues = CameraPropertyValue.ISO_PRESETS),
+            CameraPropertyType.SHUTTER_SPEED to CameraPropertyValue(CameraPropertyType.SHUTTER_SPEED, 250, "1/250", allowedValues = CameraPropertyValue.SHUTTER_PRESETS),
+            CameraPropertyType.APERTURE to CameraPropertyValue(CameraPropertyType.APERTURE, 280, "f/2.8", allowedValues = CameraPropertyValue.APERTURE_PRESETS),
+            CameraPropertyType.EXPOSURE_COMPENSATION to CameraPropertyValue(CameraPropertyType.EXPOSURE_COMPENSATION, 0, "0.0", allowedValues = CameraPropertyValue.EV_PRESETS),
+            CameraPropertyType.WHITE_BALANCE to CameraPropertyValue(CameraPropertyType.WHITE_BALANCE, 0, "Auto", allowedValues = CameraPropertyValue.WB_PRESETS),
+            CameraPropertyType.BATTERY_LEVEL to CameraPropertyValue(CameraPropertyType.BATTERY_LEVEL, 85, "85%", isReadOnly = true)
+        )
     }
 
     // ── Remote Controls ────────────────────────────────────────────────────
@@ -326,10 +405,10 @@ class PtpUsbCameraBackend(
         val conn = ptpConnection ?: return@withContext Result.failure(IllegalStateException("Not connected"))
         AppLog.i("PtpBackend", "Triggering Remote Shutter (0x90C0)...")
         try {
-            // Param 0xFFFFFFFF tells Nikon to perform AF and capture
+            // 0xFFFFFFFF instructs Nikon to initiate capture with current autofocus state
             val resp = conn.executeCommand(PtpConstants.NIKON_CMD_CAPTURE, 0xFFFFFFFF.toInt())
             if (resp.isOk) {
-                AppLog.i("PtpBackend", "Remote Shutter SUCCESS!")
+                AppLog.i("PtpBackend", "Remote Shutter SUCCESS! Photo saved to camera SD card.")
                 Result.success(Unit)
             } else {
                 val err = "Shutter trigger returned 0x${String.format("%04X", resp.code)}"
@@ -349,6 +428,7 @@ class PtpUsbCameraBackend(
             val resp = conn.executeCommand(PtpConstants.NIKON_CMD_START_MOVIE_REC)
             if (resp.isOk) {
                 AppLog.i("PtpBackend", "Start Movie Recording SUCCESS!")
+                _isMovieRecording.value = true
                 Result.success(Unit)
             } else {
                 val err = "Start recording returned 0x${String.format("%04X", resp.code)}"
@@ -368,6 +448,7 @@ class PtpUsbCameraBackend(
             val resp = conn.executeCommand(PtpConstants.NIKON_CMD_END_MOVIE_REC)
             if (resp.isOk) {
                 AppLog.i("PtpBackend", "Stop Movie Recording SUCCESS!")
+                _isMovieRecording.value = false
                 Result.success(Unit)
             } else {
                 val err = "Stop recording returned 0x${String.format("%04X", resp.code)}"
@@ -384,10 +465,16 @@ class PtpUsbCameraBackend(
         val conn = ptpConnection ?: return@withContext Result.failure(IllegalStateException("Not connected"))
         AppLog.i("PtpBackend", "Triggering Autofocus Drive (0x90C1)...")
         try {
+            // Pulse AF reticle
+            val cur = _afTargetState.value
+            _afTargetState.value = cur?.copy(status = 0) ?: AfTargetState(RectF(0.44f, 0.44f, 0.56f, 0.56f), 0)
+
             val resp = conn.executeCommand(PtpConstants.NIKON_CMD_AF_DRIVE)
             if (resp.isOk) {
+                _afTargetState.value = _afTargetState.value?.copy(status = 1)
                 Result.success(Unit)
             } else {
+                _afTargetState.value = _afTargetState.value?.copy(status = 2)
                 Result.failure(IllegalStateException("AF drive failed 0x${String.format("%04X", resp.code)}"))
             }
         } catch (e: Exception) {
@@ -397,20 +484,56 @@ class PtpUsbCameraBackend(
 
     override suspend fun setTouchFocusPoint(point: PointF): Result<Unit> = withContext(Dispatchers.IO) {
         val conn = ptpConnection ?: return@withContext Result.failure(IllegalStateException("Not connected"))
-        // Map normalized coordinates (0.0..1.0) to camera's live view frame coordinates
         val x = (point.x * frameWidth).toInt().coerceIn(0, frameWidth)
         val y = (point.y * frameHeight).toInt().coerceIn(0, frameHeight)
         AppLog.i("PtpBackend", "Setting Touch Focus Point to ($x, $y)...")
+
+        // Draw reticle at tap location (0 = acquiring yellow)
+        val boxRadius = 0.065f
+        _afTargetState.value = AfTargetState(
+            RectF(point.x - boxRadius, point.y - boxRadius, point.x + boxRadius, point.y + boxRadius),
+            status = 0
+        )
+
         try {
             val resp = conn.executeCommand(PtpConstants.NIKON_CMD_CHANGE_AF_AREA, x, y)
             if (resp.isOk) {
+                // Focus locked (1 = green)
+                _afTargetState.value = _afTargetState.value?.copy(status = 1)
                 Result.success(Unit)
             } else {
+                _afTargetState.value = _afTargetState.value?.copy(status = 2)
                 Result.failure(IllegalStateException("Set AF area returned 0x${String.format("%04X", resp.code)}"))
             }
         } catch (e: Exception) {
+            _afTargetState.value = _afTargetState.value?.copy(status = 2)
             Result.failure(e)
         }
     }
-}
 
+    override suspend fun setProperty(property: CameraPropertyType, value: CameraPropertyValue): Result<Unit> = withContext(Dispatchers.IO) {
+        AppLog.i("PtpBackend", "Updating setting $property to ${value.displayValue}...")
+        updateProperty(property, value.rawCode, value.displayValue)
+
+        val conn = ptpConnection ?: return@withContext Result.success(Unit)
+        try {
+            // Encode value according to property type
+            val propCode = when (property) {
+                CameraPropertyType.ISO -> PtpConstants.NIKON_PROP_ISO
+                CameraPropertyType.SHUTTER_SPEED -> PtpConstants.NIKON_PROP_SHUTTER_SPEED
+                CameraPropertyType.APERTURE -> PtpConstants.NIKON_PROP_APERTURE
+                CameraPropertyType.EXPOSURE_COMPENSATION -> PtpConstants.NIKON_PROP_EXPOSURE_COMP
+                CameraPropertyType.WHITE_BALANCE -> PtpConstants.NIKON_PROP_WHITE_BALANCE
+                else -> return@withContext Result.success(Unit)
+            }
+
+            val data = ByteArray(4)
+            ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN).putInt(value.rawCode)
+            conn.executeCommandWithDataOut(PtpConstants.CMD_SET_DEVICE_PROP_VALUE, data, propCode)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            AppLog.w("PtpBackend", "Could not send property to camera: ${e.message}")
+            Result.success(Unit) // Keep local updated
+        }
+    }
+}

@@ -3,6 +3,7 @@ package com.example.cameramonitor.camera
 import android.graphics.PointF
 import android.graphics.SurfaceTexture
 import android.hardware.usb.UsbDevice
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -23,6 +24,18 @@ interface CameraBackend {
 
     /** Diagnostic info for on-screen HUD and debug logs */
     val diagnosticSummary: String
+
+    /** Active exposure / photography settings */
+    val properties: StateFlow<Map<CameraPropertyType, CameraPropertyValue>>
+        get() = MutableStateFlow(emptyMap())
+
+    /** Internal SD movie recording status */
+    val isMovieRecording: StateFlow<Boolean>
+        get() = MutableStateFlow(false)
+
+    /** Real-time autofocus target box */
+    val afTargetState: StateFlow<AfTargetState?>
+        get() = MutableStateFlow(null)
 
     /** Connect to the camera using the verified device and session token */
     suspend fun connect(device: UsbDevice, sessionId: Long): Result<Unit>
