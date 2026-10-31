@@ -21,6 +21,7 @@ data class CameraDevice(
 
     val vidHex: String = String.format("%04X", vendorId)
     val pidHex: String = String.format("%04X", productId)
+    val vidPidHex: String get() = "$vidHex:$pidHex"
 
     val displayName: String
         get() = when {

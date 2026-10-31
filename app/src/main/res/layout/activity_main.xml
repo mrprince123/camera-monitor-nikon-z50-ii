@@ -502,6 +502,236 @@
     </LinearLayout>
 
     <!-- ════════════════════════════════════════════════════════
+         CAMERA EXPOSURE & STATUS QUICK-BAR (Nikon PTP Controls)
+    ════════════════════════════════════════════════════════ -->
+    <HorizontalScrollView
+        android:id="@+id/exposureBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginTop="52dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:scrollbars="none"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- ISO Pill -->
+            <LinearLayout
+                android:id="@+id/btnIso"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_exposure_pill"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:gravity="center"
+                android:layout_marginEnd="8dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/tvIsoLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ISO "
+                    android:textColor="#99FFFFFF"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvIsoValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="400"
+                    android:textColor="#FFFFC400"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Shutter Speed Pill -->
+            <LinearLayout
+                android:id="@+id/btnShutterSpeed"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_exposure_pill"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:gravity="center"
+                android:layout_marginEnd="8dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/tvShutterSpeedValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1/250"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Aperture Pill -->
+            <LinearLayout
+                android:id="@+id/btnAperture"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_exposure_pill"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:gravity="center"
+                android:layout_marginEnd="8dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/tvApertureValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="f/2.8"
+                    android:textColor="#FFFFC400"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- EV Bias Pill -->
+            <LinearLayout
+                android:id="@+id/btnEv"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_exposure_pill"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:gravity="center"
+                android:layout_marginEnd="8dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/tvEvValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+0.0 EV"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- WB Pill -->
+            <LinearLayout
+                android:id="@+id/btnWb"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_exposure_pill"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:gravity="center"
+                android:layout_marginEnd="8dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/tvWbValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AWB"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Battery Pill -->
+            <LinearLayout
+                android:id="@+id/btnBattery"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_exposure_pill"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/tvBatteryValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔋 85%"
+                    android:textColor="#FF00E676"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- ════════════════════════════════════════════════════════
+         CAMERA SHUTTER & RECORDING DOCK (ZineControl style)
+    ════════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/shutterDock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="24dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- AF-ON Button -->
+        <LinearLayout
+            android:id="@+id/btnAfOn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginBottom="14dp"
+            android:background="@drawable/bg_log_pill"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AF"
+                android:textColor="#FFFFC400"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Circular Shutter / Record Button -->
+        <View
+            android:id="@+id/btnShutter"
+            android:layout_width="68dp"
+            android:layout_height="68dp"
+            android:layout_marginBottom="14dp"
+            android:background="@drawable/btn_shutter_photo"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Mode Toggle (Photo / Movie) -->
+        <LinearLayout
+            android:id="@+id/btnModeToggle"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_log_pill"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/ivModeIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_camera_photo"
+                android:tint="#FFFFC400" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ════════════════════════════════════════════════════════
          QUICK SETTING SELECTOR MODAL DIALOG
     ════════════════════════════════════════════════════════ -->
     <FrameLayout

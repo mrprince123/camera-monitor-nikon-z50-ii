@@ -30,6 +30,7 @@ import android.view.TextureView
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -45,6 +46,7 @@ import com.example.cameramonitor.camera.CameraDevice
 import com.example.cameramonitor.camera.CameraPropertyType
 import com.example.cameramonitor.camera.CameraPropertyValue
 import com.example.cameramonitor.camera.CameraState
+import com.example.cameramonitor.camera.usb.ptp.PtpUsbCameraBackend
 import com.example.cameramonitor.camera.usb.uvc.UvcCameraBackend
 import com.example.cameramonitor.databinding.ActivityMainBinding
 import com.jiangdg.ausbc.widget.AspectRatioTextureView
@@ -606,7 +608,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 binding.overlay.invalidate()
             }
         }
-    }
     }
 
     private fun checkInitialIntent(intent: Intent?) {
