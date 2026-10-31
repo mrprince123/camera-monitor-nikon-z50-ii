@@ -7,8 +7,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.PointF
 import android.graphics.SurfaceTexture
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -22,10 +24,14 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.Surface
 import android.view.TextureView
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -33,8 +39,14 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
+import com.example.cameramonitor.camera.CameraConnectionManager
+import com.example.cameramonitor.camera.CameraDevice
+import com.example.cameramonitor.camera.CameraState
+import com.example.cameramonitor.camera.usb.uvc.UvcCameraBackend
 import com.example.cameramonitor.databinding.ActivityMainBinding
 import com.jiangdg.ausbc.widget.AspectRatioTextureView
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.atan2
 
@@ -55,7 +67,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var binding: ActivityMainBinding
     private var textureView: AspectRatioTextureView? = null
-    private lateinit var usbCameraManager: UsbCameraManager
+    private lateinit var cameraConnectionManager: CameraConnectionManager
 
     // ── Sensor ─────────────────────────────────────────────────────────────
     private lateinit var sensorManager: SensorManager
@@ -86,7 +98,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
         AppLog.i("Perm", "Permission result: RECORD_AUDIO=$audioGranted, CAMERA=$cameraGranted")
         if (audioGranted || cameraGranted) {
-            usbCameraManager.scanForConnectedDevices()
+            cameraConnectionManager.scanForConnectedDevices()
         }
     }
 
@@ -129,11 +141,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Setup TextureView for video rendering
         val tv = AspectRatioTextureView(this).apply {
-            setAspectRatio(UsbCameraManager.PREVIEW_WIDTH, UsbCameraManager.PREVIEW_HEIGHT)
+            setAspectRatio(UvcCameraBackend.PREVIEW_WIDTH, UvcCameraBackend.PREVIEW_HEIGHT)
             surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
                     AppLog.i("UI", "SurfaceTexture available (${width}x${height})")
-                    usbCameraManager.setPreviewSurface(surface)
+                    cameraConnectionManager.setPreviewSurface(surface)
                 }
 
                 override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
@@ -142,7 +154,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                 override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                     AppLog.i("UI", "SurfaceTexture destroyed")
-                    usbCameraManager.setPreviewSurface(null)
+                    cameraConnectionManager.setPreviewSurface(null)
                     return true
                 }
 
@@ -159,66 +171,34 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             )
         )
 
+        // Wire touch-to-focus on camera view
+        binding.cameraViewContainer.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                val backend = cameraConnectionManager.activeBackend.value
+                if (backend?.capabilities?.supportsTouchToFocus == true && v.width > 0 && v.height > 0) {
+                    val normX = event.x / v.width
+                    val normY = event.y / v.height
+                    AppLog.i("UI", "Touch focus requested at ($normX, $normY)")
+                    lifecycleScope.launch {
+                        cameraConnectionManager.setTouchFocusPoint(PointF(normX, normY))
+                    }
+                }
+            }
+            false // allow parent click for controls toggle
+        }
+
         // Wire Diagnostic HUD toggle
         binding.btnToggleHud.setOnClickListener {
             val isVis = binding.hudPanel.visibility == View.VISIBLE
             binding.hudPanel.visibility = if (isVis) View.GONE else View.VISIBLE
         }
 
-        // Initialize Centralized UsbCameraManager
-        usbCameraManager = UsbCameraManager(this) { oldState, newState ->
-            runOnUiThread {
-                AppLog.d("UI", "State update UI: $oldState → $newState")
-                when (newState) {
-                    UsbCameraManager.UsbConnectionState.FRAMES_RECEIVED,
-                    UsbCameraManager.UsbConnectionState.PREVIEW_RENDERING -> {
-                        hideSplash()
-                        AppLog.i("UI", "Live camera stream confirmed rendering on screen!")
-                    }
-                    UsbCameraManager.UsbConnectionState.DISCONNECTED -> {
-                        showSplash("Connect your camera\n\nCamera → USB-C → this phone")
-                    }
-                    UsbCameraManager.UsbConnectionState.USB_DETECTED -> {
-                        showSplash("Nikon Camera Detected…")
-                    }
-                    UsbCameraManager.UsbConnectionState.PERMISSION_PENDING -> {
-                        showSplash("Requesting USB Permission…\nTap 'OK' on system dialog")
-                    }
-                    UsbCameraManager.UsbConnectionState.USB_PERMISSION_GRANTED,
-                    UsbCameraManager.UsbConnectionState.USB_DEVICE_OPENED -> {
-                        showSplash("USB Device Opened…")
-                    }
-                    UsbCameraManager.UsbConnectionState.UVC_INITIALIZED,
-                    UsbCameraManager.UsbConnectionState.PREVIEW_STARTED -> {
-                        showSplash("Starting UVC Stream\n(1280x720 MJPEG)…")
-                    }
-                    UsbCameraManager.UsbConnectionState.ERROR -> {
-                        val err = usbCameraManager.lastError
-                        showSplash(
-                            "⚠ Camera connection error\n\n" +
-                            (if (err.isNotEmpty()) "($err)\n\n" else "") +
-                            "• Set camera USB mode to UVC/Webcam\n" +
-                            "• Reconnect USB-C data cable"
-                        )
-                    }
-                }
-            }
-        }
+        // Initialize Universal CameraConnectionManager
+        cameraConnectionManager = CameraConnectionManager(this)
 
-        // Wire real-time Diagnostic HUD metrics
-        usbCameraManager.diagnosticsListener = { diag ->
-            runOnUiThread {
-                binding.hudTvState.text = "State: ${diag.state}"
-                binding.hudTvDevice.text = "Device: ${diag.deviceName} [${diag.vidPid}] Perm=${diag.permissionGranted}"
-                binding.hudTvResolution.text = "Format: ${diag.resolutionFormat}"
-                binding.hudTvFrames.text = "Frames: ${diag.totalFrames} (${diag.fps} fps) | ${diag.lastFrameSizeBytes}B"
-                binding.hudTvSurface.text = "Surface: ${diag.surfaceStatus}"
-                if (diag.lastError.isNotEmpty()) {
-                    binding.hudTvError.visibility = View.VISIBLE
-                    binding.hudTvError.text = "Error: ${diag.lastError}"
-                } else {
-                    binding.hudTvError.visibility = View.GONE
-                }
+        lifecycleScope.launch {
+            cameraConnectionManager.cameraState.collect { state ->
+                handleCameraState(state)
             }
         }
 
@@ -228,13 +208,38 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             analysisHandler = Handler(it.looper)
         }
 
-        // Wire overlay toggle buttons
+        // Wire overlay toggle buttons with smooth feedback and yellow label highlights
         val o = binding.overlay
-        binding.tgGrid.setOnCheckedChangeListener  { _, v -> o.showGrid  = v; o.invalidate() }
-        binding.tgLevel.setOnCheckedChangeListener { _, v -> o.showLevel = v; o.invalidate() }
-        binding.tgHist.setOnCheckedChangeListener  { _, v -> o.showHist  = v; o.invalidate() }
-        binding.tgZebra.setOnCheckedChangeListener { _, v -> o.showZebra = v; o.invalidate() }
-        binding.tgPeak.setOnCheckedChangeListener  { _, v -> o.showPeak  = v; o.invalidate() }
+        binding.tgGrid.setOnCheckedChangeListener { _, v ->
+            animateButton(binding.tgGrid)
+            updateLabel(binding.lblGrid, v)
+            o.showGrid = v
+            o.invalidate()
+        }
+        binding.tgLevel.setOnCheckedChangeListener { _, v ->
+            animateButton(binding.tgLevel)
+            updateLabel(binding.lblLevel, v)
+            o.showLevel = v
+            o.invalidate()
+        }
+        binding.tgHist.setOnCheckedChangeListener { _, v ->
+            animateButton(binding.tgHist)
+            updateLabel(binding.lblHist, v)
+            o.showHist = v
+            o.invalidate()
+        }
+        binding.tgZebra.setOnCheckedChangeListener { _, v ->
+            animateButton(binding.tgZebra)
+            updateLabel(binding.lblZebra, v)
+            o.showZebra = v
+            o.invalidate()
+        }
+        binding.tgPeak.setOnCheckedChangeListener { _, v ->
+            animateButton(binding.tgPeak)
+            updateLabel(binding.lblPeak, v)
+            o.showPeak = v
+            o.invalidate()
+        }
 
         // Tap anywhere on background → smoothly show / hide controls
         binding.root.setOnClickListener { toggleControls() }
@@ -242,17 +247,104 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Wire Diagnostic Logs UI
         setupLogsUi()
 
+        // Apply initial orientation (Portrait or Landscape)
+        applyOrientation(resources.configuration.orientation)
+
         // Initial splash
         showSplash("Connect your camera")
 
-        // Start USB manager & register receiver
-        usbCameraManager.start()
+        // Start universal camera connection manager & register receiver
+        cameraConnectionManager.start()
 
         // Ensure runtime permissions
         checkPermissions()
 
         // Check if device was launched via USB_DEVICE_ATTACHED intent
         checkInitialIntent(intent)
+    }
+
+    private fun handleCameraState(state: CameraState) {
+        AppLog.d("UI", "CameraState update: $state")
+        when (state) {
+            is CameraState.Streaming -> {
+                hideSplash()
+                binding.statusBadgeText.text = "CONNECTED"
+                binding.statusBadgeText.setTextColor(Color.parseColor("#FFFFC400"))
+                binding.statusDot.setBackgroundResource(R.drawable.bg_status_dot_connected)
+
+                binding.hudTvState.text = "State: STREAMING"
+                val backend = cameraConnectionManager.activeBackend.value
+                val backendName = when (backend?.backendType) {
+                    CameraDevice.ConnectionType.USB_PTP -> "Nikon PTP (Full Control)"
+                    CameraDevice.ConnectionType.HDMI_CAPTURE -> "HDMI Video Capture"
+                    else -> "USB UVC Streaming"
+                }
+                binding.hudTvDevice.text = "Backend: $backendName"
+                binding.hudTvResolution.text = "Resolution: ${state.resolution}"
+                binding.hudTvFrames.text = "Frames: ${state.totalFrames} (${state.fps} fps)"
+                binding.hudTvSurface.text = "Rendering: ${state.isRendering}"
+                binding.hudTvError.visibility = View.GONE
+            }
+            is CameraState.Disconnected -> {
+                binding.statusBadgeText.text = "DISCONNECTED"
+                binding.statusBadgeText.setTextColor(Color.parseColor("#9AA2B3"))
+                binding.statusDot.setBackgroundResource(R.drawable.bg_status_dot_disconnected)
+                showSplash("Connect your camera\n\nCamera → USB-C → this phone")
+
+                binding.hudTvState.text = "State: DISCONNECTED"
+                binding.hudTvDevice.text = "Device: None"
+                binding.hudTvFrames.text = "Frames: 0 (0 fps)"
+            }
+            is CameraState.DeviceDetected -> {
+                binding.statusBadgeText.text = "DETECTED"
+                binding.statusBadgeText.setTextColor(Color.parseColor("#FFFFC400"))
+                binding.statusDot.setBackgroundResource(R.drawable.bg_status_dot_connected)
+                showSplash("${state.deviceName} Detected…")
+
+                binding.hudTvState.text = "State: DETECTED"
+                binding.hudTvDevice.text = "Device: ${state.deviceName} [${state.vidPid}]"
+            }
+            is CameraState.PermissionPending -> {
+                binding.statusBadgeText.text = "PERMISSION"
+                binding.statusBadgeText.setTextColor(Color.parseColor("#FFFFC400"))
+                binding.statusDot.setBackgroundResource(R.drawable.bg_status_dot_connected)
+                showSplash("Requesting USB Permission…\nTap 'OK' on system dialog")
+
+                binding.hudTvState.text = "State: PERMISSION_PENDING"
+            }
+            is CameraState.Connecting -> {
+                binding.statusBadgeText.text = "CONNECTING"
+                binding.statusBadgeText.setTextColor(Color.parseColor("#FFFFC400"))
+                binding.statusDot.setBackgroundResource(R.drawable.bg_status_dot_connected)
+                showSplash(state.stage)
+
+                binding.hudTvState.text = "State: CONNECTING (${state.stage})"
+            }
+            is CameraState.Connected -> {
+                binding.statusBadgeText.text = "CONNECTED"
+                binding.statusBadgeText.setTextColor(Color.parseColor("#FFFFC400"))
+                binding.statusDot.setBackgroundResource(R.drawable.bg_status_dot_connected)
+                showSplash("Connected: ${state.device.displayName}…")
+
+                binding.hudTvState.text = "State: CONNECTED"
+                binding.hudTvDevice.text = "Device: ${state.device.displayName} [${state.device.connectionType}]"
+            }
+            is CameraState.Error -> {
+                binding.statusBadgeText.text = "ERROR"
+                binding.statusBadgeText.setTextColor(Color.parseColor("#FFFF4D4D"))
+                binding.statusDot.setBackgroundResource(R.drawable.bg_status_dot_disconnected)
+                showSplash(
+                    "⚠ Camera connection error\n\n" +
+                    "(${state.message})\n\n" +
+                    "• Set camera USB to MTP/PTP or UVC\n" +
+                    "• Reconnect USB-C data cable"
+                )
+
+                binding.hudTvState.text = "State: ERROR"
+                binding.hudTvError.visibility = View.VISIBLE
+                binding.hudTvError.text = "Error: ${state.message}"
+            }
+        }
     }
 
     private fun checkInitialIntent(intent: Intent?) {
@@ -266,7 +358,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
         }
         if (device != null) {
-            usbCameraManager.onNewIntentAttachedDevice(device)
+            cameraConnectionManager.onNewIntentAttachedDevice(device)
         }
     }
 
@@ -329,12 +421,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             @Suppress("DEPRECATION")
             intent?.getParcelableExtra(UsbManager.EXTRA_DEVICE)
         }
-        usbCameraManager.onNewIntentAttachedDevice(device)
+        cameraConnectionManager.onNewIntentAttachedDevice(device)
     }
 
     override fun onResume() {
         super.onResume()
-        AppLog.d("Lifecycle", "onResume() [state=${usbCameraManager.state}]")
+        AppLog.d("Lifecycle", "onResume() [state=${cameraConnectionManager.cameraState.value}]")
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
         }
@@ -342,7 +434,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         analysisHandler?.post(analysisLoop)
 
         // Check if permission was granted or device state changed while paused
-        usbCameraManager.onResumeCheck()
+        cameraConnectionManager.onResumeCheck()
     }
 
     override fun onPause() {
@@ -368,7 +460,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         maskBmp?.recycle();  maskBmp  = null
         mainHandler.removeCallbacksAndMessages(null)
 
-        usbCameraManager.stop()
+        cameraConnectionManager.stop()
         super.onDestroy()
     }
 
@@ -420,12 +512,125 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val target = if (controlsVisible) 1f else 0f
         binding.controls.animate()
             .alpha(target)
-            .setDuration(200)
+            .setDuration(220)
             .withEndAction {
                 binding.controls.visibility =
                     if (controlsVisible) View.VISIBLE else View.INVISIBLE
             }
             .start()
+
+        binding.topBar.animate()
+            .alpha(target)
+            .setDuration(220)
+            .withEndAction {
+                binding.topBar.visibility =
+                    if (controlsVisible) View.VISIBLE else View.INVISIBLE
+            }
+            .start()
+    }
+
+    private fun animateButton(view: View) {
+        view.animate()
+            .scaleX(0.88f)
+            .scaleY(0.88f)
+            .setDuration(90)
+            .withEndAction {
+                view.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(130)
+                    .start()
+            }
+            .start()
+    }
+
+    private fun updateLabel(label: TextView, isChecked: Boolean) {
+        label.setTextColor(if (isChecked) Color.parseColor("#FFFFC400") else Color.parseColor("#99FFFFFF"))
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  Orientation switching (Portrait vs Landscape without stream restart)
+    // ──────────────────────────────────────────────────────────────────────
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        AppLog.i("UI", "onConfigurationChanged() orientation=${newConfig.orientation}")
+        applyOrientation(newConfig.orientation)
+    }
+
+    private fun applyOrientation(orientation: Int) {
+        val isLandscape = (orientation == Configuration.ORIENTATION_LANDSCAPE)
+        AppLog.i("UI", "applyOrientation: isLandscape=$isLandscape")
+
+        val density = resources.displayMetrics.density
+        fun dp(v: Int): Int = (v * density + 0.5f).toInt()
+
+        // 1. Camera View Container
+        val camParams = binding.cameraViewContainer.layoutParams as FrameLayout.LayoutParams
+        if (isLandscape) {
+            camParams.width = FrameLayout.LayoutParams.MATCH_PARENT
+            camParams.height = FrameLayout.LayoutParams.MATCH_PARENT
+            camParams.gravity = Gravity.CENTER
+            camParams.topMargin = 0
+        } else {
+            camParams.width = FrameLayout.LayoutParams.MATCH_PARENT
+            camParams.height = FrameLayout.LayoutParams.WRAP_CONTENT
+            camParams.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            camParams.topMargin = dp(56) // Below status top bar
+        }
+        binding.cameraViewContainer.layoutParams = camParams
+
+        // 2. Control Bar Container (ZineControl style)
+        val controlsParams = binding.controls.layoutParams as FrameLayout.LayoutParams
+        if (isLandscape) {
+            binding.controls.orientation = LinearLayout.VERTICAL
+            controlsParams.width = FrameLayout.LayoutParams.WRAP_CONTENT
+            controlsParams.height = FrameLayout.LayoutParams.WRAP_CONTENT
+            controlsParams.gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            controlsParams.marginEnd = dp(16)
+            controlsParams.bottomMargin = 0
+            binding.controls.setPadding(dp(8), dp(12), dp(8), dp(12))
+
+            // Button margins inside controls
+            val btnItems = listOf(binding.itemGrid, binding.itemLevel, binding.itemHist, binding.itemZebra)
+            for (item in btnItems) {
+                val p = item.layoutParams as LinearLayout.LayoutParams
+                p.marginEnd = 0
+                p.bottomMargin = dp(10)
+                item.layoutParams = p
+            }
+            val lastP = binding.itemPeak.layoutParams as LinearLayout.LayoutParams
+            lastP.marginEnd = 0
+            lastP.bottomMargin = 0
+            binding.itemPeak.layoutParams = lastP
+        } else {
+            binding.controls.orientation = LinearLayout.HORIZONTAL
+            controlsParams.width = FrameLayout.LayoutParams.WRAP_CONTENT
+            controlsParams.height = FrameLayout.LayoutParams.WRAP_CONTENT
+            controlsParams.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            controlsParams.marginEnd = 0
+            controlsParams.bottomMargin = dp(24)
+            binding.controls.setPadding(dp(14), dp(8), dp(14), dp(8))
+
+            // Button margins inside controls
+            val btnItems = listOf(binding.itemGrid, binding.itemLevel, binding.itemHist, binding.itemZebra)
+            for (item in btnItems) {
+                val p = item.layoutParams as LinearLayout.LayoutParams
+                p.marginEnd = dp(14)
+                p.bottomMargin = 0
+                item.layoutParams = p
+            }
+            val lastP = binding.itemPeak.layoutParams as LinearLayout.LayoutParams
+            lastP.marginEnd = 0
+            lastP.bottomMargin = 0
+            binding.itemPeak.layoutParams = lastP
+        }
+        binding.controls.layoutParams = controlsParams
+
+        // 3. Update overlay rect to match new dimensions
+        binding.root.post {
+            updateVideoRect()
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -433,7 +638,23 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     // ──────────────────────────────────────────────────────────────────────
 
     override fun onSensorChanged(e: SensorEvent) {
-        var a = Math.toDegrees(atan2(e.values[1].toDouble(), e.values[0].toDouble())).toFloat()
+        val rotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display?.rotation ?: Surface.ROTATION_0
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.rotation
+        }
+
+        val x = e.values[0].toDouble()
+        val y = e.values[1].toDouble()
+
+        var a = when (rotation) {
+            Surface.ROTATION_90 -> Math.toDegrees(atan2(y, x)).toFloat()
+            Surface.ROTATION_270 -> -Math.toDegrees(atan2(y, x)).toFloat()
+            Surface.ROTATION_180 -> -Math.toDegrees(atan2(x, y)).toFloat()
+            else -> Math.toDegrees(atan2(x, y)).toFloat()
+        }
+
         if (a > 90f) a -= 180f else if (a < -90f) a += 180f
         val o = binding.overlay
         o.tiltDeg = o.tiltDeg * 0.8f + a * 0.2f  // low-pass for smooth line
@@ -475,8 +696,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     // ──────────────────────────────────────────────────────────────────────
 
     private fun analyzeFrame() {
-        if (usbCameraManager.state != UsbCameraManager.UsbConnectionState.PREVIEW_RENDERING &&
-            usbCameraManager.state != UsbCameraManager.UsbConnectionState.FRAMES_RECEIVED) {
+        val state = cameraConnectionManager.cameraState.value
+        if (state !is CameraState.Streaming) {
             return
         }
         val tv = textureView ?: return

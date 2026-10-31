@@ -86,10 +86,10 @@ class OverlayView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
-    /** Faint border around the histogram box. */
+    /** Faint yellow border around the histogram box. */
     private val histBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(80, 0, 180, 255)
-        strokeWidth = 1f
+        color = Color.argb(120, 255, 196, 0)
+        strokeWidth = 1.5f
         style = Paint.Style.STROKE
     }
 
@@ -156,7 +156,8 @@ class OverlayView @JvmOverloads constructor(
         c.drawLine(cx - half, cy, cx + half, cy, levelRefPaint)
 
         // Rotating indicator
-        levelPaint.color = if (abs(tiltDeg) < 1f) 0xFF00E676.toInt() else 0xFFFFD600.toInt()
+        val isLevel = abs(tiltDeg) < 1f
+        levelPaint.color = if (isLevel) 0xFF00E676.toInt() else 0xFFFFC400.toInt()
         c.save()
         c.rotate(-tiltDeg, cx, cy)
         c.drawLine(cx - half, cy, cx + half, cy, levelPaint)
@@ -167,6 +168,7 @@ class OverlayView @JvmOverloads constructor(
 
         // Degree label above the centre
         val label = "%.1f°".format(tiltDeg)
+        levelTextPaint.color = if (isLevel) 0xFF00E676.toInt() else 0xFFFFC400.toInt()
         c.drawText(label, cx, cy - 28f, levelTextPaint)
     }
 
@@ -182,14 +184,14 @@ class OverlayView @JvmOverloads constructor(
         val right  = left + boxW
         val bottom = top + boxH
 
-        // Background + border
-        c.drawRoundRect(left, top, right, bottom, 8f, 8f, histBgPaint)
-        c.drawRoundRect(left, top, right, bottom, 8f, 8f, histBorderPaint)
+        // Background + border with soft rounded corners (ZineControl style)
+        c.drawRoundRect(left, top, right, bottom, 14f, 14f, histBgPaint)
+        c.drawRoundRect(left, top, right, bottom, 14f, 14f, histBorderPaint)
 
-        // Bars with a gradient (shadow at bottom, bright at top)
+        // Bars with a modern bright yellow gradient (shadow at bottom, bright yellow at top)
         histBarPaint.shader = LinearGradient(
             0f, top, 0f, bottom,
-            intArrayOf(0xFF00B4FF.toInt(), 0xFF005888.toInt()),
+            intArrayOf(0xFFFFC400.toInt(), 0x55FFC400.toInt()),
             null, Shader.TileMode.CLAMP
         )
 

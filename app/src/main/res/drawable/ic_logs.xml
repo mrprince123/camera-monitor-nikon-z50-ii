@@ -16,7 +16,7 @@
     <!-- Prompt ">" -->
     <path
         android:pathData="M6,9 L9,11.5 L6,14"
-        android:strokeColor="#FF00B4FF"
+        android:strokeColor="#FFFFC400"
         android:strokeWidth="1.6"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"

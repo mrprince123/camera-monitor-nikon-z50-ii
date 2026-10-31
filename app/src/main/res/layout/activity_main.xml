@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000"
+    android:background="#0A0B0E"
     android:keepScreenOn="true">
 
     <!-- ── Live camera feed container ── -->
     <FrameLayout
         android:id="@+id/cameraViewContainer"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:layout_gravity="center" />
 
     <!-- ── Analysis overlay: grid / level / histogram / zebra / peaking ── -->
     <com.example.cameramonitor.OverlayView
@@ -18,98 +20,224 @@
         android:layout_height="match_parent" />
 
     <!-- ════════════════════════════════════════════════════════
-         SPLASH / WAITING SCREEN
+         TOP ACTIONS BAR (Status Badge + LOGS + HUD)
     ════════════════════════════════════════════════════════ -->
     <LinearLayout
-        android:id="@+id/splashLayout"
+        android:id="@+id/topBar"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:background="#FF0D1117"
-        android:visibility="visible">
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="10dp">
 
-        <!-- App icon (camera aperture logo) -->
-        <ImageView
-            android:id="@+id/splashLogo"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:src="@drawable/ic_splash_logo"
-            android:scaleType="fitCenter"
-            android:layout_marginBottom="22dp" />
-
-        <!-- App name -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="CamMonitor"
-            android:textColor="#E8EEF6"
-            android:textSize="26sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.06"
-            android:layout_marginBottom="6dp" />
-
-        <!-- Tagline -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Nikon Z50 II · Field Monitor"
-            android:textColor="#4466889A"
-            android:textSize="12sp"
-            android:letterSpacing="0.08"
-            android:layout_marginBottom="44dp" />
-
-        <!-- Status pill -->
+        <!-- STATUS BADGE (ZineControl style: glowing dot + "CONNECTED" in bright yellow) -->
         <LinearLayout
+            android:id="@+id/statusBadge"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="32dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="#1AFFFFFF"
-            android:paddingLeft="20dp"
-            android:paddingRight="20dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp">
+            android:background="@drawable/bg_status_pill"
+            android:paddingStart="12dp"
+            android:paddingEnd="14dp">
 
+            <!-- Glowing indicator dot -->
+            <View
+                android:id="@+id/statusDot"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/bg_status_dot_disconnected"
+                android:layout_marginEnd="8dp" />
+
+            <!-- Status text -->
             <TextView
+                android:id="@+id/statusBadgeText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🔌"
-                android:textSize="18sp"
-                android:layout_marginEnd="10dp" />
-
-            <TextView
-                android:id="@+id/statusText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Connect your camera"
-                android:textColor="#88AABFCE"
-                android:textSize="14sp"
-                android:letterSpacing="0.02" />
+                android:text="DISCONNECTED"
+                android:textColor="#FFFFC400"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08" />
         </LinearLayout>
 
+        <!-- Spacer -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- LOGS BUTTON -->
+        <LinearLayout
+            android:id="@+id/btnOpenLogs"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_log_pill"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_logs"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="LOGS"
+                android:textColor="#E2E8F0"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08" />
+        </LinearLayout>
+
+        <!-- HUD TOGGLE BUTTON -->
+        <LinearLayout
+            android:id="@+id/btnToggleHud"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_log_pill"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📊"
+                android:textSize="11sp"
+                android:layout_marginEnd="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HUD"
+                android:textColor="#E2E8F0"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- ════════════════════════════════════════════════════════
-         CAMERA-STYLE ICON CONTROL PANEL (right side, vertical)
-         Tap anywhere on the screen to show/hide.
+         DIAGNOSTIC HUD PANEL (real-time stream metrics)
+    ════════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/hudPanel"
+        android:layout_width="290dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="54dp"
+        android:background="@drawable/bg_control_bar"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/hudTvState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="USB State: DISCONNECTED"
+            android:textColor="#FFFFC400"
+            android:textSize="10.5sp"
+            android:fontFamily="monospace"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/hudTvDevice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Device: None"
+            android:textColor="#E2E8F0"
+            android:textSize="9.5sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="3dp" />
+
+        <TextView
+            android:id="@+id/hudTvResolution"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Format: 1280x720 MJPEG"
+            android:textColor="#E2E8F0"
+            android:textSize="9.5sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="3dp" />
+
+        <TextView
+            android:id="@+id/hudTvFrames"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Frames: 0 (0 fps)"
+            android:textColor="#FF00E676"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:textStyle="bold"
+            android:layout_marginTop="3dp" />
+
+        <TextView
+            android:id="@+id/hudTvSurface"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Surface: Waiting"
+            android:textColor="#E2E8F0"
+            android:textSize="9.5sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="3dp" />
+
+        <TextView
+            android:id="@+id/hudTvError"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Last Error: None"
+            android:textColor="#FFFF4D4D"
+            android:textSize="9.5sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="3dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- ════════════════════════════════════════════════════════
+         CAMERA-STYLE ICON CONTROL PANEL (ZineControl style)
+         Translucent dark panel with soft rounded corners (24dp)
+         Landscape: Vertical bar on right side
+         Portrait:  Horizontal bar at bottom
     ════════════════════════════════════════════════════════ -->
     <LinearLayout
         android:id="@+id/controls"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end|center_vertical"
-        android:layout_marginEnd="10dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/bg_control_bar"
         android:orientation="vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
         android:visibility="visible">
 
         <!-- ── Grid button ── -->
         <LinearLayout
+            android:id="@+id/itemGrid"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="10dp">
 
             <CheckBox
                 android:id="@+id/tgGrid"
@@ -117,22 +245,25 @@
                 android:drawableTop="@drawable/ic_grid" />
 
             <TextView
+                android:id="@+id/lblGrid"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="GRID"
-                android:textColor="#77FFFFFF"
-                android:textSize="8sp"
+                android:textColor="@color/label_tint"
+                android:textSize="8.5sp"
+                android:textStyle="bold"
                 android:letterSpacing="0.1"
-                android:layout_marginTop="3dp" />
+                android:layout_marginTop="4dp" />
         </LinearLayout>
 
         <!-- ── Level button ── -->
         <LinearLayout
+            android:id="@+id/itemLevel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="10dp">
 
             <CheckBox
                 android:id="@+id/tgLevel"
@@ -140,22 +271,25 @@
                 android:drawableTop="@drawable/ic_level" />
 
             <TextView
+                android:id="@+id/lblLevel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="LEVEL"
-                android:textColor="#77FFFFFF"
-                android:textSize="8sp"
+                android:textColor="@color/label_tint"
+                android:textSize="8.5sp"
+                android:textStyle="bold"
                 android:letterSpacing="0.1"
-                android:layout_marginTop="3dp" />
+                android:layout_marginTop="4dp" />
         </LinearLayout>
 
         <!-- ── Histogram button ── -->
         <LinearLayout
+            android:id="@+id/itemHist"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="10dp">
 
             <CheckBox
                 android:id="@+id/tgHist"
@@ -163,22 +297,25 @@
                 android:drawableTop="@drawable/ic_histogram" />
 
             <TextView
+                android:id="@+id/lblHist"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="HISTO"
-                android:textColor="#77FFFFFF"
-                android:textSize="8sp"
+                android:textColor="@color/label_tint"
+                android:textSize="8.5sp"
+                android:textStyle="bold"
                 android:letterSpacing="0.1"
-                android:layout_marginTop="3dp" />
+                android:layout_marginTop="4dp" />
         </LinearLayout>
 
         <!-- ── Zebra button ── -->
         <LinearLayout
+            android:id="@+id/itemZebra"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="10dp">
 
             <CheckBox
                 android:id="@+id/tgZebra"
@@ -186,17 +323,20 @@
                 android:drawableTop="@drawable/ic_zebra" />
 
             <TextView
+                android:id="@+id/lblZebra"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="ZEBRA"
-                android:textColor="#77FFFFFF"
-                android:textSize="8sp"
+                android:textColor="@color/label_tint"
+                android:textSize="8.5sp"
+                android:textStyle="bold"
                 android:letterSpacing="0.1"
-                android:layout_marginTop="3dp" />
+                android:layout_marginTop="4dp" />
         </LinearLayout>
 
         <!-- ── Focus Peaking button ── -->
         <LinearLayout
+            android:id="@+id/itemPeak"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -208,178 +348,105 @@
                 android:drawableTop="@drawable/ic_focus" />
 
             <TextView
+                android:id="@+id/lblPeak"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="FOCUS"
-                android:textColor="#77FFFFFF"
-                android:textSize="8sp"
+                android:textColor="@color/label_tint"
+                android:textSize="8.5sp"
+                android:textStyle="bold"
                 android:letterSpacing="0.1"
-                android:layout_marginTop="3dp" />
+                android:layout_marginTop="4dp" />
         </LinearLayout>
 
     </LinearLayout>
 
     <!-- ════════════════════════════════════════════════════════
-         TOP ACTIONS BAR (top-left: LOGS + HUD + DIAGNOSTICS)
+         SPLASH / WAITING SCREEN (Modern Yellow & Charcoal Design)
     ════════════════════════════════════════════════════════ -->
     <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="14dp"
-        android:layout_marginTop="14dp"
-        android:orientation="vertical">
+        android:id="@+id/splashLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#FF0A0B0E"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="visible">
 
+        <!-- App icon (Modern lens camera logo with soft rounded corners) -->
+        <ImageView
+            android:id="@+id/splashLogo"
+            android:layout_width="128dp"
+            android:layout_height="128dp"
+            android:src="@drawable/ic_splash_logo"
+            android:scaleType="fitCenter"
+            android:clipToOutline="true"
+            android:background="@drawable/bg_splash_logo"
+            android:layout_marginBottom="24dp" />
+
+        <!-- App name -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CamMonitor"
+            android:textColor="#FFFFFF"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.06"
+            android:layout_marginBottom="6dp" />
+
+        <!-- Tagline -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nikon Z50 II · Field Monitor"
+            android:textColor="#9AA2B3"
+            android:textSize="13sp"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="36dp" />
+
+        <!-- Status pill with yellow accent -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <!-- LOGS BUTTON -->
-            <LinearLayout
-                android:id="@+id/btnOpenLogs"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="@drawable/bg_log_pill"
-                android:paddingStart="10dp"
-                android:paddingEnd="12dp"
-                android:clickable="true"
-                android:focusable="true">
-
-                <ImageView
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:src="@drawable/ic_logs"
-                    android:layout_marginEnd="6dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="LOGS"
-                    android:textColor="#CCFFFFFF"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.08" />
-            </LinearLayout>
-
-            <!-- HUD TOGGLE BUTTON -->
-            <LinearLayout
-                android:id="@+id/btnToggleHud"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:layout_marginStart="8dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="@drawable/bg_log_pill"
-                android:paddingStart="10dp"
-                android:paddingEnd="12dp"
-                android:clickable="true"
-                android:focusable="true">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="📊"
-                    android:textSize="11sp"
-                    android:layout_marginEnd="4dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="HUD"
-                    android:textColor="#CCFFFFFF"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.08" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- DIAGNOSTIC HUD PANEL (real-time stream metrics) -->
-        <LinearLayout
-            android:id="@+id/hudPanel"
-            android:layout_width="290dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="#CC0A0F16"
-            android:orientation="vertical"
-            android:padding="8dp"
-            android:visibility="visible">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_status_pill"
+            android:paddingStart="22dp"
+            android:paddingEnd="22dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp">
 
             <TextView
-                android:id="@+id/hudTvState"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="USB State: DISCONNECTED"
-                android:textColor="#FF64D2FF"
-                android:textSize="10.5sp"
-                android:fontFamily="monospace"
-                android:textStyle="bold" />
+                android:text="⚡"
+                android:textSize="18sp"
+                android:layout_marginEnd="10dp" />
 
             <TextView
-                android:id="@+id/hudTvDevice"
+                android:id="@+id/statusText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Device: None"
-                android:textColor="#CCFFFFFF"
-                android:textSize="9.5sp"
-                android:fontFamily="monospace"
-                android:layout_marginTop="2dp" />
-
-            <TextView
-                android:id="@+id/hudTvResolution"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Format: 1280x720 MJPEG"
-                android:textColor="#CCFFFFFF"
-                android:textSize="9.5sp"
-                android:fontFamily="monospace"
-                android:layout_marginTop="2dp" />
-
-            <TextView
-                android:id="@+id/hudTvFrames"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Frames: 0 (0 fps)"
-                android:textColor="#FF30D158"
-                android:textSize="10sp"
-                android:fontFamily="monospace"
+                android:text="Connect your camera"
+                android:textColor="#FFFFC400"
+                android:textSize="14sp"
                 android:textStyle="bold"
-                android:layout_marginTop="2dp" />
-
-            <TextView
-                android:id="@+id/hudTvSurface"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Surface: Waiting"
-                android:textColor="#CCFFFFFF"
-                android:textSize="9.5sp"
-                android:fontFamily="monospace"
-                android:layout_marginTop="2dp" />
-
-            <TextView
-                android:id="@+id/hudTvError"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Last Error: None"
-                android:textColor="#FFFF453A"
-                android:textSize="9.5sp"
-                android:fontFamily="monospace"
-                android:layout_marginTop="2dp"
-                android:visibility="gone" />
+                android:letterSpacing="0.03" />
         </LinearLayout>
 
     </LinearLayout>
 
     <!-- ════════════════════════════════════════════════════════
-         DIAGNOSTIC LOGS MODAL DIALOG
+         DIAGNOSTIC LOGS MODAL DIALOG (Yellow & Charcoal Theme)
     ════════════════════════════════════════════════════════ -->
     <FrameLayout
         android:id="@+id/logModalContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#B3000000"
+        android:background="#D9000000"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone">
@@ -398,16 +465,17 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="10dp">
+                android:layout_marginBottom="12dp">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Diagnostic Logs"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
+                    android:textColor="#FFFFC400"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.04" />
 
                 <!-- Copy All Button -->
                 <LinearLayout
@@ -427,6 +495,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_copy"
+                        android:tint="#FF0A0B0E"
                         android:layout_marginEnd="6dp" />
 
                     <TextView
@@ -434,7 +503,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="COPY ALL"
-                        android:textColor="#FF001424"
+                        android:textColor="#FF0A0B0E"
                         android:textSize="11sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -450,7 +519,7 @@
                     android:textSize="11sp"
                     android:paddingStart="10dp"
                     android:paddingEnd="10dp"
-                    android:background="#22FFFFFF"
+                    android:background="@drawable/bg_log_pill"
                     android:clickable="true"
                     android:focusable="true"
                     android:layout_marginEnd="8dp" />
@@ -465,7 +534,7 @@
                     android:textColor="#FFFFFFFF"
                     android:textSize="14sp"
                     android:textStyle="bold"
-                    android:background="#22FFFFFF"
+                    android:background="@drawable/bg_log_pill"
                     android:clickable="true"
                     android:focusable="true" />
             </LinearLayout>
@@ -476,8 +545,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:background="#E605070A"
-                android:padding="10dp"
+                android:background="#E607090C"
+                android:padding="12dp"
                 android:fadeScrollbars="false">
 
                 <TextView
@@ -485,8 +554,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:fontFamily="monospace"
-                    android:textColor="#FF64D2FF"
-                    android:textSize="10.5sp"
+                    android:textColor="#FFFFC400"
+                    android:textSize="11sp"
                     android:textIsSelectable="true"
                     android:lineSpacingExtra="2dp" />
             </ScrollView>

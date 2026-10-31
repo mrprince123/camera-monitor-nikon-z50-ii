@@ -1,7 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#0D0F14</color>
-    <color name="colorPrimary">#00B4FF</color>
-    <color name="colorSurface">#1A1D24</color>
-    <color name="colorOnSurface">#E0E6F0</color>
+    <!-- Modern Yellow & Charcoal Theme Palette (ZineControl style) -->
+    <color name="ic_launcher_background">#FFC400</color>
+    <color name="colorPrimary">#FFC400</color>
+    <color name="colorPrimaryVariant">#FFA000</color>
+    <color name="colorOnPrimary">#0A0B0E</color>
+    <color name="colorBackground">#0A0B0E</color>
+    <color name="colorSurface">#14171F</color>
+    <color name="colorSurfaceGlass">#CC12151C</color>
+    <color name="colorSurfaceBorder">#33FFC400</color>
+    <color name="colorOnSurface">#FFFFFF</color>
+    <color name="colorOnSurfaceMuted">#9AA2B3</color>
+    <color name="colorYellowAccent">#FFC400</color>
+    <color name="colorYellowGlow">#4DFFC400</color>
+    <color name="colorConnectedGreen">#00E676</color>
+    <color name="colorErrorRed">#FF4D4D</color>
 </resources>

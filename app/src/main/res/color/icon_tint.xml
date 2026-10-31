@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Color state list for icon tint on CheckBox icon buttons.
-    state_checked=true  → electric blue (active overlay)
-    default             → soft white (inactive, still readable)
+    Color state list for icon tint on CheckBox icon buttons (ZineControl style).
+    state_checked=true  → very dark charcoal/black (#0A0B0E) inside bright yellow pill
+    state_pressed=true  → bright yellow (#FFC400)
+    default             → soft crisp silver-white (#E2E8F0)
 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_checked="true"  android:color="#FF00B4FF" />
-    <item android:state_pressed="true"  android:color="#CC00D4FF" />
-    <item                               android:color="#AAFFFFFF" />
+    <item android:state_checked="true"  android:color="#FF0A0B0E" />
+    <item android:state_pressed="true"  android:color="#FFFFC400" />
+    <item                               android:color="#FFE2E8F0" />
 </selector>
